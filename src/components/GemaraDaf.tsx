@@ -114,7 +114,6 @@ export function GemaraDaf({
   onSelectLine,
   highlights,
 }: Props) {
-  let sawGemara = false
   const head = splitRef(page.ref, page.heRef)
 
   return (
@@ -147,27 +146,32 @@ export function GemaraDaf({
               if (!line.trim()) return null
               const mishnah = isMishnahLine(page.english[i] || '', line)
               const gemaraMark = isGemaraMarker(page.english[i] || '', line)
-              if (gemaraMark) sawGemara = true
               const kind = mishnah
                 ? 'mishnah'
                 : gemaraMark
                   ? 'gemara-mark'
-                  : sawGemara
-                    ? 'gemara'
-                    : 'gemara'
+                  : 'gemara'
               return (
-                <button
+                <span
                   key={i}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   className={`vilna-line ${kind}${i === lineIndex ? ' active' : ''}`}
                   onClick={() => onSelectLine(i)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onSelectLine(i)
+                    }
+                  }}
                 >
                   <HighlightedLine
                     text={line}
                     highlights={highlights}
                     isActive={i === lineIndex}
                   />
-                </button>
+                  {' '}
+                </span>
               )
             })}
           </div>
