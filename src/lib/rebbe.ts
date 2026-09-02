@@ -7,6 +7,9 @@ export type SpeakPayload = {
   mimeType: string
   audioBase64: string
   voice: string
+  source?: string
+  text?: string
+  warning?: string
 }
 
 export type RebbeResponse = {
@@ -63,6 +66,9 @@ export function stopSpeaking() {
     currentHtmlAudio.src = ''
     currentHtmlAudio = null
   }
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel()
+  }
 }
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
@@ -74,10 +80,74 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer
 }
 
+function pickBrowserVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return null
+  const voices = window.speechSynthesis.getVoices()
+  const preferred = [
+    /google us english/i,
+    /google uk english male/i,
+    /microsoft (guy|davis|tony|mark)/i,
+    /\bdaniel\b/i,
+    /\balex\b/i,
+    /\bdavid\b/i,
+    /english \(united states\)/i,
+    /^en(-|_)/i,
+  ]
+  for (const pattern of preferred) {
+    const hit = voices.find((v) => pattern.test(`${v.name} ${v.lang}`))
+    if (hit) return hit
+  }
+  return voices.find((v) => v.lang.toLowerCase().startsWith('en')) || null
+}
+
+export async function playBrowserSpeech(
+  text: string,
+  onend?: () => void,
+): Promise<void> {
+  if (typeof window === 'undefined' || !window.speechSynthesis) {
+    throw new Error('No speaker voice available in this browser.')
+  }
+  stopSpeaking()
+  await new Promise<void>((resolve) => {
+    let started = false
+    const speakNow = () => {
+      if (started) return
+      started = true
+      const utter = new SpeechSynthesisUtterance(text)
+      const voice = pickBrowserVoice()
+      if (voice) utter.voice = voice
+      utter.rate = 0.92
+      utter.pitch = 0.95
+      utter.volume = 1
+      utter.onend = () => {
+        resolve()
+        onend?.()
+      }
+      utter.onerror = () => {
+        resolve()
+        onend?.()
+      }
+      window.speechSynthesis.speak(utter)
+    }
+    if (window.speechSynthesis.getVoices().length === 0) {
+      window.speechSynthesis.onvoiceschanged = () => speakNow()
+      window.speechSynthesis.getVoices()
+      setTimeout(speakNow, 250)
+    } else {
+      speakNow()
+    }
+  })
+}
+
 export async function playBase64Audio(
   audio: SpeakPayload,
   onend?: () => void,
 ): Promise<void> {
+  if (audio.source === 'browser' || audio.mimeType === 'browser') {
+    await playBrowserSpeech(audio.text || '', onend)
+    return
+  }
+
   stopSpeaking()
 
   const ctx = getAudioContext()
@@ -85,7 +155,6 @@ export async function playBase64Audio(
     await ctx.resume()
   }
   if (!unlocked) {
-    // Last-chance unlock; may still fail without a gesture.
     await unlockAudio()
   }
 
@@ -109,7 +178,6 @@ export async function playBase64Audio(
     console.warn('AudioContext playback failed, trying HTMLAudioElement', err)
   }
 
-  // Fallback path
   const url = `data:${audio.mimeType};base64,${audio.audioBase64}`
   const el = new Audio(url)
   el.volume = 1
@@ -126,6 +194,10 @@ export async function playBase64Audio(
     await el.play()
   } catch (err) {
     currentHtmlAudio = null
+    if (audio.text) {
+      await playBrowserSpeech(audio.text, onend)
+      return
+    }
     throw new Error(
       err instanceof Error
         ? `Could not play sound: ${err.message}`
@@ -171,10 +243,29 @@ export async function speakAgain(
   })
   const data = await res.json()
   if (!res.ok) {
-    throw new Error(data.error || 'Could not speak right now.')
+    return {
+      mimeType: 'browser',
+      audioBase64: '',
+      voice,
+      source: 'browser',
+      text,
+      warning: data.error || 'Could not speak right now.',
+    }
+  }
+  if (data?.source === 'browser' || data?.mimeType === 'browser') {
+    return {
+      ...data,
+      text: data.text || text,
+    } as SpeakPayload
   }
   if (!data?.audioBase64) {
-    throw new Error('No sound came back from the Rebbe.')
+    return {
+      mimeType: 'browser',
+      audioBase64: '',
+      voice,
+      source: 'browser',
+      text,
+    }
   }
-  return data as SpeakPayload
+  return { ...data, text } as SpeakPayload
 }

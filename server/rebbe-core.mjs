@@ -186,6 +186,73 @@ function pcmToWavBase64(pcmBase64, sampleRate = 24000) {
 
 const speechCache = new Map()
 
+const TTS_MODELS = [
+  process.env.GEMINI_TTS_MODEL,
+  'gemini-2.5-flash-preview-tts',
+  'gemini-3.1-flash-tts-preview',
+  'gemini-2.5-pro-preview-tts',
+].filter(Boolean)
+
+async function requestGeminiSpeech(model, apiKey, spoken, voice) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: `Speak warmly to one student, natural and calm:\n${spoken}`,
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: voice,
+              },
+            },
+          },
+        },
+      }),
+    },
+  )
+
+  const data = await res.json()
+  if (!res.ok) {
+    const message =
+      data?.error?.message || `Speech generation failed (${res.status})`
+    const error = new Error(message)
+    error.status = res.status
+    throw error
+  }
+
+  const part = data?.candidates?.[0]?.content?.parts?.find(
+    (p) => p.inlineData?.data,
+  )
+  const inline = part?.inlineData
+  if (!inline?.data) {
+    const error = new Error('No audio returned from Gemini TTS')
+    error.status = 500
+    throw error
+  }
+
+  const mime = String(inline.mimeType || '')
+  const rateMatch = mime.match(/rate=(\d+)/i)
+  const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000
+  return {
+    mimeType: 'audio/wav',
+    audioBase64: pcmToWavBase64(inline.data, sampleRate),
+    voice,
+    source: 'gemini',
+  }
+}
+
 export async function synthesizeRebbeSpeech(text, voiceName = 'Sadaltager') {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -196,9 +263,6 @@ export async function synthesizeRebbeSpeech(text, voiceName = 'Sadaltager') {
 
   const allowed = new Set(REBBE_VOICES.map((v) => v.id))
   const voice = allowed.has(voiceName) ? voiceName : 'Sadaltager'
-  const model =
-    process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts'
-
   const spoken = clip(String(text || '').trim(), 520)
   if (!spoken) {
     const error = new Error('Nothing to speak')
@@ -209,67 +273,32 @@ export async function synthesizeRebbeSpeech(text, voiceName = 'Sadaltager') {
   const cacheKey = `${voice}::${spoken}`
   if (speechCache.has(cacheKey)) return speechCache.get(cacheKey)
 
-  const payload = await withRetry(async () => {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `Speak warmly to one student, natural and calm:\n${spoken}`,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: {
-                  voiceName: voice,
-                },
-              },
-            },
-          },
-        }),
-      },
-    )
-
-    const data = await res.json()
-    if (!res.ok) {
-      const message =
-        data?.error?.message ||
-        `Speech generation failed (${res.status})`
-      const error = new Error(message)
-      error.status = res.status
-      throw error
+  let lastErr
+  for (const model of [...new Set(TTS_MODELS)]) {
+    try {
+      const payload = await withRetry(() =>
+        requestGeminiSpeech(model, apiKey, spoken, voice),
+      )
+      if (speechCache.size > 40) speechCache.clear()
+      speechCache.set(cacheKey, payload)
+      return payload
+    } catch (err) {
+      lastErr = err
+      const msg = String(err?.message || '')
+      // try next model on quota / not found
+      if (!/429|quota|rate|404|not found|no longer available/i.test(msg)) {
+        break
+      }
     }
+  }
 
-    const part = data?.candidates?.[0]?.content?.parts?.find(
-      (p) => p.inlineData?.data,
-    )
-    const inline = part?.inlineData
-    if (!inline?.data) {
-      const error = new Error('No audio returned from Gemini TTS')
-      error.status = 500
-      throw error
-    }
-
-    const mime = String(inline.mimeType || '')
-    const rateMatch = mime.match(/rate=(\d+)/i)
-    const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000
-    return {
-      mimeType: 'audio/wav',
-      audioBase64: pcmToWavBase64(inline.data, sampleRate),
-      voice,
-    }
-  })
-
-  if (speechCache.size > 40) speechCache.clear()
-  speechCache.set(cacheKey, payload)
-  return payload
+  // Signal client to use local speaker voice so the student still hears something.
+  return {
+    mimeType: 'browser',
+    audioBase64: '',
+    voice,
+    source: 'browser',
+    text: spoken,
+    warning: lastErr?.message || 'Gemini speech quota reached',
+  }
 }
