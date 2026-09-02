@@ -9,6 +9,7 @@ import {
   synthesizeRebbeSpeech,
   REBBE_VOICES,
 } from './rebbe-core.mjs'
+import { mountAccountRoutes } from './account-routes.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
@@ -36,6 +37,7 @@ app.use('/api/*', cors())
 
 app.get('/api/health', (c) => c.json({ ok: true, name: 'Guide' }))
 app.get('/api/voices', (c) => c.json({ voices: REBBE_VOICES }))
+mountAccountRoutes(app)
 
 function lessonResponse(lesson, audio = null) {
   return {

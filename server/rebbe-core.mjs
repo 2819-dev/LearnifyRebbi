@@ -61,6 +61,17 @@ export function buildCurriculumBlock() {
   ].join('\n')
 }
 
+export async function buildTrainingBlock() {
+  try {
+    const { trainingHintsForPrompt } = await import('./account-core.mjs')
+    const hints = await trainingHintsForPrompt()
+    if (!hints) return ''
+    return `\nTester coaching notes (follow these when relevant):\n${hints}`
+  } catch {
+    return ''
+  }
+}
+
 async function withRetry(fn, tries = 3) {
   let lastErr
   for (let i = 0; i < tries; i++) {
@@ -176,6 +187,8 @@ export async function generateRebbeReply(body) {
     },
   })
 
+  const training = await buildTrainingBlock()
+
   const context = [
     `Page: ${gemaraRef} (line ${lineIndex})`,
     `Center Hebrew: ${clip(hebrewLine, 360)}`,
@@ -183,6 +196,7 @@ export async function generateRebbeReply(body) {
     `Rashi: ${clip(rashiForLine, 220) || '(none)'}`,
     `Tosafot: ${clip(tosafotForLine, 140) || '(none)'}`,
     buildCurriculumBlock(),
+    training,
     needWelcome
       ? 'Include a one-sentence welcome in "welcome".'
       : 'Leave "welcome" empty.',

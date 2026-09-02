@@ -5,9 +5,12 @@
 
 [functions]
   node_bundler = "esbuild"
-  included_files = ["src/data/**"]
+  included_files = ["src/data/**", "server/**"]
 
 [functions."rebbe"]
+  timeout = 26
+
+[functions."account"]
   timeout = 26
 
 [build.environment]

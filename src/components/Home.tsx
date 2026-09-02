@@ -2,15 +2,31 @@ import { useMemo, useState } from 'react'
 import curriculum from '../data/hashavas-aveidah.json'
 import { APP_NAME, REBBE_VOICES } from '../lib/brand'
 import { TRACTATES } from '../lib/curriculum'
+import type { Account } from '../lib/account'
 import { unlockAudio } from '../lib/rebbe'
 import { normalizeDaf } from '../lib/sefaria'
 
 type Props = {
   onStart: (opts: { daf: string; voiceId: string; tractateId: string }) => void
   onShowTour?: () => void
+  account?: Account | null
+  onSignIn?: () => void
+  onSignOut?: () => void
+  onOpenAdmin?: () => void
+  onOpenTesting?: () => void
+  onOpenSupport?: () => void
 }
 
-export function Home({ onStart, onShowTour }: Props) {
+export function Home({
+  onStart,
+  onShowTour,
+  account,
+  onSignIn,
+  onSignOut,
+  onOpenAdmin,
+  onOpenTesting,
+  onOpenSupport,
+}: Props) {
   const [tractateId, setTractateId] = useState(TRACTATES[0].id)
   const [daf, setDaf] = useState(curriculum.defaultDaf)
   const [voiceId, setVoiceId] = useState<string>(REBBE_VOICES[0].id)
@@ -26,6 +42,45 @@ export function Home({ onStart, onShowTour }: Props) {
   return (
     <div className="shell home-shell">
       <main className="home">
+        <div className="home-top-links">
+          {account ? (
+            <>
+              <span className="soft">Hi, {account.username}</span>
+              {account.role === 'admin' && onOpenAdmin && (
+                <button type="button" className="linkish tiny" onClick={onOpenAdmin}>
+                  Admin
+                </button>
+              )}
+              {(account.role === 'admin' || account.role === 'tester') &&
+                onOpenTesting && (
+                  <button
+                    type="button"
+                    className="linkish tiny"
+                    onClick={onOpenTesting}
+                  >
+                    Testing
+                  </button>
+                )}
+              {onSignOut && (
+                <button type="button" className="linkish tiny" onClick={onSignOut}>
+                  Sign out
+                </button>
+              )}
+            </>
+          ) : (
+            onSignIn && (
+              <button type="button" className="linkish tiny" onClick={onSignIn}>
+                Sign in
+              </button>
+            )
+          )}
+          {onOpenSupport && (
+            <button type="button" className="linkish tiny" onClick={onOpenSupport}>
+              Support
+            </button>
+          )}
+        </div>
+
         <p className="brand">{APP_NAME}</p>
         <h1>Learn Gemara with a Rebbe beside you.</h1>
         <p className="lede">
