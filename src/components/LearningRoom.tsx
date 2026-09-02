@@ -234,21 +234,31 @@ export function LearningRoom({
         await playAudio(opts.audio)
         return
       } else {
-        const audio = await speakAgain(text, voiceRef.current)
-        await playAudio(audio)
-        return
+        // Local male voice first — reliable sound and much faster than TTS.
+        await playBrowserSpeech(text, {
+          lang: 'en-US',
+          rate: 0.9,
+          onDuration: (ms) => startReadingWalk(ms),
+        })
       }
       setSpeaking(false)
       clearWalk()
       setNeedsGesture(false)
       if (!micMutedRef.current) micRef.current?.resume()
     } catch (err) {
-      setSpeaking(false)
-      clearWalk()
-      setNeedsGesture(true)
-      setError(friendlyError(err))
-      if (!micMutedRef.current) micRef.current?.resume()
-      throw err
+      // Last resort: try Gemini / server speech once.
+      try {
+        const audio = await speakAgain(text, voiceRef.current)
+        await playAudio(audio)
+        return
+      } catch (inner) {
+        setSpeaking(false)
+        clearWalk()
+        setNeedsGesture(true)
+        setError(friendlyError(inner))
+        if (!micMutedRef.current) micRef.current?.resume()
+        throw inner
+      }
     }
   }
 

@@ -364,18 +364,19 @@ export async function synthesizeRebbeSpeech(text, voiceName = 'Charon') {
   if (speechCache.has(cacheKey)) return speechCache.get(cacheKey)
 
   let lastErr
-  for (const model of [...new Set(TTS_MODELS)]) {
+  // One quick attempt — free TTS quota is tiny; browser voice is the backup.
+  for (const model of [...new Set(TTS_MODELS)].slice(0, 1)) {
     try {
-      const payload = await withRetry(() =>
-        requestGeminiSpeech(model, apiKey, spoken, voice),
+      const payload = await withRetry(
+        () => requestGeminiSpeech(model, apiKey, spoken, voice),
+        1,
       )
       if (speechCache.size > 40) speechCache.clear()
       speechCache.set(cacheKey, payload)
       return payload
     } catch (err) {
       lastErr = err
-      const msg = String(err?.message || '')
-      if (!/429|quota|rate|404|not found|no longer available/i.test(msg)) break
+      break
     }
   }
 

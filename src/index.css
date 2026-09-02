@@ -1,5 +1,5 @@
 :root {
-  --bg: #f7f4ef;
+  --bg: #f3eee4;
   --ink: #14181c;
   --quiet: #5a6168;
   --line: rgba(20, 24, 28, 0.1);
@@ -8,9 +8,9 @@
   --accent-2: #16304f;
   --warm: #b0893c;
   --danger: #9b3b32;
-  --daf: #efe6d2;
-  --daf-ink: #171310;
-  --daf-line: rgba(23, 19, 16, 0.16);
+  --daf: #f3e6c8;
+  --daf-ink: #1a140e;
+  --daf-line: rgba(23, 19, 16, 0.2);
   --radius: 14px;
   --font-ui: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif;
   --font-display: 'Source Serif 4', 'Iowan Old Style', 'Palatino Linotype', serif;
@@ -35,9 +35,9 @@ html {
 
 body {
   background:
-    radial-gradient(900px 420px at 100% -10%, rgba(176, 137, 60, 0.12), transparent 55%),
+    radial-gradient(900px 420px at 100% -10%, rgba(176, 137, 60, 0.14), transparent 55%),
     radial-gradient(800px 480px at -10% 0%, rgba(31, 58, 95, 0.1), transparent 50%),
-    var(--bg);
+    linear-gradient(180deg, #f7f2e8 0%, var(--bg) 40%, #efe8da 100%);
   color: var(--ink);
   font-family: var(--font-ui);
   line-height: 1.45;
@@ -424,11 +424,14 @@ button {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--daf);
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 252, 245, 0.55), transparent 55%),
+    linear-gradient(180deg, #f7ebcf 0%, var(--daf) 45%, #e9d7b0 100%);
   color: var(--daf-ink);
   border: 1px solid var(--daf-line);
   border-radius: var(--radius) var(--radius) 0 0;
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .daf-page-head {
@@ -437,6 +440,7 @@ button {
   gap: 1rem;
   padding: 0.65rem 0.85rem;
   border-bottom: 1px solid var(--daf-line);
+  background: rgba(255, 252, 245, 0.28);
 }
 
 .daf-folio {
@@ -468,6 +472,10 @@ button {
   border-inline-start: none;
 }
 
+.daf-col.center {
+  background: rgba(255, 250, 240, 0.22);
+}
+
 .daf-col-label {
   display: flex;
   justify-content: space-between;
@@ -496,9 +504,9 @@ button {
 .daf-comment {
   margin: 0 0 0.65rem;
   font-family: var(--font-rashi);
-  font-size: 0.8rem;
-  line-height: 1.5;
-  color: rgba(23, 19, 16, 0.78);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: rgba(23, 19, 16, 0.8);
 }
 
 .daf-comment.focused {
