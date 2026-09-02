@@ -1,5 +1,5 @@
 export default async () =>
-  Response.json({ ok: true, name: 'Lomed' })
+  Response.json({ ok: true, name: 'Guide' })
 
 export const config = {
   path: '/api/health',

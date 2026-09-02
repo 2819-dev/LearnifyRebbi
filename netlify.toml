@@ -7,6 +7,9 @@
   node_bundler = "esbuild"
   included_files = ["src/data/**"]
 
+[functions."rebbe"]
+  timeout = 26
+
 [build.environment]
   NODE_VERSION = "22"
 

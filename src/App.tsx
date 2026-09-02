@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Home } from './components/Home'
 import { LearningRoom } from './components/LearningRoom'
+import { REBBE_VOICES } from './lib/brand'
 import './index.css'
 
 type Session = {
   daf: string
-  voiceId: string | null
+  voiceId: string
 } | null
 
 export default function App() {
@@ -22,7 +23,7 @@ export default function App() {
   return (
     <LearningRoom
       daf={session.daf}
-      voiceId={session.voiceId}
+      voiceId={session.voiceId || REBBE_VOICES[0].id}
       onVoiceIdChange={(voiceId) =>
         setSession((prev) => (prev ? { ...prev, voiceId } : prev))
       }

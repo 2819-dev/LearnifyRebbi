@@ -1,24 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import curriculum from '../data/hashavas-aveidah.json'
-import { askRebbe, type ChatMessage } from '../lib/rebbe'
+import { APP_NAME, REBBE_VOICES } from '../lib/brand'
+import {
+  askRebbe,
+  playBase64Audio,
+  speakAgain,
+  stopSpeaking,
+  type ChatMessage,
+  type SpeakPayload,
+} from '../lib/rebbe'
 import {
   defaultStartIndex,
   fetchGemaraPage,
   type GemaraPage,
 } from '../lib/sefaria'
-import {
-  listEnglishVoices,
-  speakText,
-  stopSpeaking,
-  type VoiceOption,
-} from '../lib/speech'
 
 type Props = {
   daf: string
-  voiceId: string | null
+  voiceId: string
   onExit: () => void
-  onVoiceIdChange: (id: string | null) => void
+  onVoiceIdChange: (id: string) => void
 }
 
 export function LearningRoom({
@@ -36,26 +38,20 @@ export function LearningRoom({
   const [error, setError] = useState<string | null>(null)
   const [question, setQuestion] = useState('')
   const [speaking, setSpeaking] = useState(false)
-  const [voices, setVoices] = useState<VoiceOption[]>([])
   const feedRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<ChatMessage[]>([])
-  const voiceRef = useRef<SpeechSynthesisVoice | null>(null)
   const pageRef = useRef<GemaraPage | null>(null)
   const lineRef = useRef(0)
+  const voiceRef = useRef(voiceId)
   const requestIdRef = useRef(0)
 
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
 
-  const selectedVoice = useMemo(
-    () => voices.find((v) => v.id === voiceId)?.voice ?? voices[0]?.voice ?? null,
-    [voices, voiceId],
-  )
-
   useEffect(() => {
-    voiceRef.current = selectedVoice
-  }, [selectedVoice])
+    voiceRef.current = voiceId
+  }, [voiceId])
 
   useEffect(() => {
     pageRef.current = page
@@ -66,14 +62,39 @@ export function LearningRoom({
   }, [lineIndex])
 
   useEffect(() => {
-    const refresh = () => setVoices(listEnglishVoices())
-    refresh()
-    window.speechSynthesis?.addEventListener('voiceschanged', refresh)
-    return () => {
-      window.speechSynthesis?.removeEventListener('voiceschanged', refresh)
-      stopSpeaking()
+    feedRef.current?.scrollTo({
+      top: feedRef.current.scrollHeight,
+      behavior: 'smooth',
+    })
+  }, [messages, busy])
+
+  useEffect(() => () => stopSpeaking(), [])
+
+  function playAudio(audio: SpeakPayload | null) {
+    if (!audio) {
+      setSpeaking(false)
+      return
     }
-  }, [])
+    setSpeaking(true)
+    playBase64Audio(audio, () => setSpeaking(false))
+  }
+
+  async function speakText(text: string, requestId: number) {
+    try {
+      const audio = await speakAgain(text, voiceRef.current)
+      if (requestId !== requestIdRef.current) return
+      playAudio(audio)
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return
+      console.error(err)
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not speak right now.',
+      )
+      setSpeaking(false)
+    }
+  }
 
   async function teachCurrentLine() {
     const current = pageRef.current
@@ -83,28 +104,25 @@ export function LearningRoom({
     setBusy(true)
     setError(null)
     setMessages([])
+    stopSpeaking()
     try {
-      const reply = await askRebbe({
+      const { reply } = await askRebbe({
         messages: [],
         gemaraRef: current.ref,
         hebrewLine: current.hebrew[idx] || '',
         englishLine: current.english[idx] || '',
         lineIndex: idx,
         mode: 'teach',
+        voice: voiceRef.current,
       })
       if (id !== requestIdRef.current) return
       setMessages([{ role: 'model', content: reply }])
-      setSpeaking(true)
-      speakText(reply, voiceRef.current, {
-        onend: () => {
-          if (id === requestIdRef.current) setSpeaking(false)
-        },
-      })
+      setBusy(false)
+      await speakText(reply, id)
     } catch (err) {
       if (id !== requestIdRef.current) return
       setError(err instanceof Error ? err.message : 'Something went wrong.')
-    } finally {
-      if (id === requestIdRef.current) setBusy(false)
+      setBusy(false)
     }
   }
 
@@ -117,7 +135,7 @@ export function LearningRoom({
     setError(null)
     try {
       const prior = messagesRef.current
-      const reply = await askRebbe({
+      const { reply } = await askRebbe({
         messages: prior,
         gemaraRef: current.ref,
         hebrewLine: current.hebrew[idx] || '',
@@ -125,6 +143,7 @@ export function LearningRoom({
         lineIndex: idx,
         mode,
         question: q,
+        voice: voiceRef.current,
       })
       if (id !== requestIdRef.current) return
       const next: ChatMessage[] =
@@ -132,17 +151,12 @@ export function LearningRoom({
           ? [...prior, { role: 'user', content: q }, { role: 'model', content: reply }]
           : [...prior, { role: 'model', content: reply }]
       setMessages(next)
-      setSpeaking(true)
-      speakText(reply, voiceRef.current, {
-        onend: () => {
-          if (id === requestIdRef.current) setSpeaking(false)
-        },
-      })
+      setBusy(false)
+      await speakText(reply, id)
     } catch (err) {
       if (id !== requestIdRef.current) return
       setError(err instanceof Error ? err.message : 'Something went wrong.')
-    } finally {
-      if (id === requestIdRef.current) setBusy(false)
+      setBusy(false)
     }
   }
 
@@ -175,13 +189,6 @@ export function LearningRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [daf])
 
-  useEffect(() => {
-    feedRef.current?.scrollTo({
-      top: feedRef.current.scrollHeight,
-      behavior: 'smooth',
-    })
-  }, [messages, busy])
-
   function goLine(nextIndex: number) {
     const current = pageRef.current
     if (!current) return
@@ -202,42 +209,42 @@ export function LearningRoom({
   }
 
   return (
-    <div className="shell room-shell">
-      <div className="atmosphere atmosphere-soft" aria-hidden="true" />
+    <div className="page room">
+      <div className="wash soft" aria-hidden="true" />
       <header className="room-top">
-        <button type="button" className="ghost-btn" onClick={onExit}>
-          ← Lomed
+        <button type="button" className="btn-ghost" onClick={onExit}>
+          ← {APP_NAME}
         </button>
-        <div className="room-heading">
-          <p className="brand-inline">Lomed</p>
+        <div className="room-title">
+          <p className="wordmark-sm">{APP_NAME}</p>
           <h1>{page?.ref || `Bava Metzia ${daf}`}</h1>
           <p className="he-ref" dir="rtl" lang="he">
             {page?.heRef || curriculum.title}
           </p>
         </div>
-        <label className="voice-mini">
+        <label className="voice-field">
           <span>Voice</span>
           <select
-            value={voiceId ?? voices[0]?.id ?? ''}
-            onChange={(e) => onVoiceIdChange(e.target.value || null)}
+            value={voiceId}
+            onChange={(e) => onVoiceIdChange(e.target.value)}
           >
-            {voices.map((v) => (
+            {REBBE_VOICES.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.name}
+                {v.label}
               </option>
             ))}
           </select>
         </label>
       </header>
 
-      {loadingPage && <p className="status-line">Opening the Gemara…</p>}
-      {pageError && <p className="error-line">{pageError}</p>}
+      {loadingPage && <p className="status">Opening the Gemara…</p>}
+      {pageError && <p className="error">{pageError}</p>}
 
       {page && (
         <div className="room-grid">
-          <section className="gemara-panel" aria-label="Gemara text">
-            <div className="panel-label">
-              <span>Hebrew on the page</span>
+          <section className="panel gemara" aria-label="Gemara text">
+            <div className="panel-bar">
+              <span>On the page</span>
               <span>
                 Line {lineIndex + 1} / {page.hebrew.length}
               </span>
@@ -245,12 +252,11 @@ export function LearningRoom({
             <div className="gemara-scroll" dir="rtl" lang="he">
               {page.hebrew.map((line, i) => {
                 if (!line.trim()) return null
-                const active = i === lineIndex
                 return (
                   <button
                     key={i}
                     type="button"
-                    className={`gemara-line${active ? ' active' : ''}`}
+                    className={`gemara-line${i === lineIndex ? ' active' : ''}`}
                     onClick={() => goLine(i)}
                   >
                     <span className="line-num">{i + 1}</span>
@@ -259,10 +265,10 @@ export function LearningRoom({
                 )
               })}
             </div>
-            <div className="line-controls">
+            <div className="toolbar">
               <button
                 type="button"
-                className="secondary-btn"
+                className="btn-secondary"
                 disabled={lineIndex <= 0 || busy}
                 onClick={() => goLine(lineIndex - 1)}
               >
@@ -270,7 +276,7 @@ export function LearningRoom({
               </button>
               <button
                 type="button"
-                className="secondary-btn"
+                className="btn-secondary"
                 disabled={lineIndex >= page.hebrew.length - 1 || busy}
                 onClick={() => goLine(lineIndex + 1)}
               >
@@ -279,57 +285,68 @@ export function LearningRoom({
             </div>
           </section>
 
-          <section className="rebbe-panel" aria-label="Rebbe">
-            <div className="panel-label">
-              <span>Your Rebbe · English</span>
-              <span className={speaking ? 'pulse' : ''}>
+          <section className="panel rebbe" aria-label="Rebbe">
+            <div className="panel-bar">
+              <span>Rebbe · English</span>
+              <span className={speaking ? 'live' : ''}>
                 {speaking ? 'Speaking…' : busy ? 'Thinking…' : 'Ready'}
               </span>
             </div>
 
-            <div className="rebbe-feed" ref={feedRef}>
+            <div className="feed" ref={feedRef}>
               {messages.length === 0 && !busy && (
-                <p className="empty-feed">
-                  The Rebbe will start teaching this line in a moment.
-                </p>
+                <p className="status">Class is about to start on this line.</p>
               )}
               {messages.map((m, i) => (
                 <div
                   key={`${i}-${m.role}`}
-                  className={`bubble ${m.role === 'user' ? 'you' : 'rebbe'}`}
+                  className={`note ${m.role === 'user' ? 'mine' : 'theirs'}`}
                 >
-                  <span className="bubble-who">
+                  <span className="who">
                     {m.role === 'user' ? 'You' : 'Rebbe'}
                   </span>
                   <p>{m.content}</p>
                 </div>
               ))}
-              {busy && <p className="status-line">Rebbe is thinking…</p>}
+              {busy && <p className="status">Rebbe is thinking…</p>}
             </div>
 
-            {error && <p className="error-line">{error}</p>}
+            {error && <p className="error">{error}</p>}
 
-            <div className="rebbe-actions">
+            <div className="toolbar">
               <button
                 type="button"
-                className="secondary-btn"
-                disabled={busy || !messages.length}
-                onClick={() => {
+                className="btn-secondary"
+                disabled={busy || !messages.some((m) => m.role === 'model')}
+                onClick={async () => {
                   const last = [...messages]
                     .reverse()
                     .find((m) => m.role === 'model')
                   if (!last) return
-                  setSpeaking(true)
-                  speakText(last.content, voiceRef.current, {
-                    onend: () => setSpeaking(false),
-                  })
+                  try {
+                    setBusy(true)
+                    setError(null)
+                    const fresh = await speakAgain(
+                      last.content,
+                      voiceRef.current,
+                    )
+                    playAudio(fresh)
+                  } catch (err) {
+                    setError(
+                      err instanceof Error
+                        ? err.message
+                        : 'Could not speak right now.',
+                    )
+                  } finally {
+                    setBusy(false)
+                  }
                 }}
               >
                 Speak again
               </button>
               <button
                 type="button"
-                className="secondary-btn"
+                className="btn-secondary"
                 disabled={!speaking}
                 onClick={() => {
                   stopSpeaking()
@@ -340,7 +357,7 @@ export function LearningRoom({
               </button>
               <button
                 type="button"
-                className="secondary-btn"
+                className="btn-secondary"
                 disabled={busy}
                 onClick={() => void runFollowUp('continue')}
               >
@@ -348,14 +365,14 @@ export function LearningRoom({
               </button>
             </div>
 
-            <form className="ask-form" onSubmit={onAsk}>
+            <form className="ask" onSubmit={onAsk}>
               <input
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Ask the Rebbe a question…"
+                placeholder="Ask your Rebbe…"
                 disabled={busy}
               />
-              <button type="submit" className="primary-btn" disabled={busy}>
+              <button type="submit" className="btn-primary" disabled={busy}>
                 Ask
               </button>
             </form>

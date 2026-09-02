@@ -4,7 +4,11 @@ import { cors } from 'hono/cors'
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { generateRebbeReply } from './rebbe-core.mjs'
+import {
+  generateRebbeReply,
+  synthesizeRebbeSpeech,
+  REBBE_VOICES,
+} from './rebbe-core.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
@@ -30,7 +34,8 @@ if (existsSync(envPath)) {
 const app = new Hono()
 app.use('/api/*', cors())
 
-app.get('/api/health', (c) => c.json({ ok: true, name: 'Lomed' }))
+app.get('/api/health', (c) => c.json({ ok: true, name: 'Guide' }))
+app.get('/api/voices', (c) => c.json({ voices: REBBE_VOICES }))
 
 app.post('/api/rebbe', async (c) => {
   let body
@@ -41,6 +46,11 @@ app.post('/api/rebbe', async (c) => {
   }
 
   try {
+    if (body?.action === 'speak') {
+      const spoken = await synthesizeRebbeSpeech(body.text, body.voice)
+      return c.json(spoken)
+    }
+
     const reply = await generateRebbeReply(body)
     return c.json({ reply })
   } catch (err) {
@@ -49,7 +59,7 @@ app.post('/api/rebbe', async (c) => {
       {
         error:
           err?.message ||
-          'The Rebbe could not answer right now. Check your Gemini free-tier key and try again.',
+          'The Rebbe could not answer right now. Check your Gemini key and try again.',
       },
       err?.status || 500,
     )
@@ -57,5 +67,5 @@ app.post('/api/rebbe', async (c) => {
 })
 
 const port = Number(process.env.PORT || 8787)
-console.log(`Lomed Rebbe API on http://localhost:${port}`)
+console.log(`Guide Rebbe API on http://localhost:${port}`)
 serve({ fetch: app.fetch, port })
