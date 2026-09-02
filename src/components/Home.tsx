@@ -14,50 +14,40 @@ export function Home({ onStart }: Props) {
   const selected = REBBE_VOICES.find((v) => v.id === voiceId) || REBBE_VOICES[0]
 
   return (
-    <div className="page">
-      <div className="wash" aria-hidden="true" />
-      <header className="top">
-        <div className="mark" aria-hidden="true">
-          <span className="mark-canopy" />
-          <span className="mark-trunk" />
-        </div>
-        <p className="kicker">Gemara class for kids</p>
-      </header>
-
-      <main className="hero">
-        <p className="wordmark">{APP_NAME}</p>
-        <h1>Learn Gemara like you are sitting in class.</h1>
+    <div className="shell">
+      <main className="home">
+        <p className="brand">{APP_NAME}</p>
+        <h1>One student. One Rebbe. One open Gemara.</h1>
         <p className="lede">
-          Your Rebbe opens a real Gemara page, explains in clear English, and
-          talks with you — you can speak into the mic or type. We start with
-          Bava Metzia, Hashavas Aveidah.
+          He speaks to you. You speak back. Hebrew words welcome. We begin with
+          Bava Metzia — Hashavas Aveidah.
         </p>
 
         <form
-          className="panel start-panel"
+          className="setup"
           onSubmit={(e) => {
             e.preventDefault()
             onStart({ daf: preview, voiceId })
           }}
         >
-          <label className="field">
-            <span>Masechta</span>
-            <div className="locked">Bava Metzia · Eilu Metziot</div>
-          </label>
+          <div className="setup-row">
+            <label>
+              <span>Masechta</span>
+              <strong>Bava Metzia</strong>
+            </label>
+            <label>
+              <span>Daf</span>
+              <input
+                value={daf}
+                onChange={(e) => setDaf(e.target.value)}
+                placeholder="21a"
+                inputMode="text"
+                autoComplete="off"
+              />
+            </label>
+          </div>
 
-          <label className="field">
-            <span>Daf</span>
-            <input
-              value={daf}
-              onChange={(e) => setDaf(e.target.value)}
-              placeholder="21a"
-              inputMode="text"
-              autoComplete="off"
-            />
-            <small>Start at 21a for the Hashavas Aveidah mishna.</small>
-          </label>
-
-          <label className="field">
+          <label className="full">
             <span>Rebbe voice</span>
             <select
               value={voiceId}
@@ -65,23 +55,18 @@ export function Home({ onStart }: Props) {
             >
               {REBBE_VOICES.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.label}
+                  {v.label} — {v.blurb}
                 </option>
               ))}
             </select>
             <small>{selected.blurb}</small>
           </label>
 
-          <button type="submit" className="btn-primary">
-            Start class
+          <button type="submit" className="btn-main">
+            Begin
           </button>
         </form>
       </main>
-
-      <footer className="foot">
-        Text from Sefaria. A study helper — not a replacement for your real Rebbe
-        or a posek.
-      </footer>
     </div>
   )
 }

@@ -36,20 +36,36 @@ export function micSupported(): boolean {
   return typeof window !== 'undefined' && Boolean(getRecognitionCtor())
 }
 
+/** Detect mostly Hebrew so we can restart recognition in he-IL when needed. */
+export function looksHebrew(text: string): boolean {
+  return /[\u0590-\u05FF]/.test(text)
+}
+
 export class StudentMic {
   private recognition: RecognitionLike | null = null
   private wanted = false
   private paused = false
+  private lang: 'en-US' | 'he-IL' = 'en-US'
+  private callbacks: MicCallbacks | null = null
+
+  setLang(lang: 'en-US' | 'he-IL') {
+    if (this.lang === lang) return
+    this.lang = lang
+    if (this.wanted && !this.paused) {
+      this.start(this.callbacks || { onFinal: () => undefined })
+    }
+  }
 
   start(callbacks: MicCallbacks) {
     const Ctor = getRecognitionCtor()
     if (!Ctor) {
       callbacks.onError?.(
-        'This browser cannot listen. Try Chrome, or type your question.',
+        'This browser cannot listen. Try Chrome on desktop.',
       )
       return
     }
 
+    this.callbacks = callbacks
     this.stop()
     this.wanted = true
     this.paused = false
@@ -57,7 +73,7 @@ export class StudentMic {
     this.recognition = recognition
     recognition.continuous = true
     recognition.interimResults = true
-    recognition.lang = 'en-US'
+    recognition.lang = this.lang
 
     recognition.onresult = (event) => {
       let finalText = ''
@@ -69,14 +85,18 @@ export class StudentMic {
         else partial += `${piece} `
       }
       if (partial) callbacks.onPartial?.(partial.trim())
-      if (finalText.trim()) callbacks.onFinal(finalText.trim())
+      if (finalText.trim()) {
+        const spoken = finalText.trim()
+        if (looksHebrew(spoken)) this.lang = 'he-IL'
+        callbacks.onFinal(spoken)
+      }
     }
 
     recognition.onerror = (event) => {
       if (event.error === 'aborted' || event.error === 'no-speech') return
       if (event.error === 'not-allowed') {
         callbacks.onError?.(
-          'Microphone permission is blocked. Allow the mic, or type your question.',
+          'Allow the microphone so you can speak to the Rebbe.',
         )
         this.wanted = false
       }
@@ -85,6 +105,7 @@ export class StudentMic {
     recognition.onend = () => {
       if (this.wanted && !this.paused) {
         try {
+          recognition.lang = this.lang
           recognition.start()
         } catch {
           // ignore restart races
@@ -114,6 +135,7 @@ export class StudentMic {
     if (!this.wanted || !this.recognition) return
     this.paused = false
     try {
+      this.recognition.lang = this.lang
       this.recognition.start()
     } catch {
       // ignore

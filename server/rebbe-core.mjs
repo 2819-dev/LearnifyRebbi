@@ -3,70 +3,84 @@ import curriculum from '../src/data/hashavas-aveidah.json' with { type: 'json' }
 
 export const APP_NAME = 'Guide'
 
-export const SYSTEM_PROMPT = `You are a real classroom Rebbe inside Guide, teaching Jewish children (about ages 9–14) Gemara.
+export const SYSTEM_PROMPT = `You are a Rebbe learning one-on-one with a Jewish child (about 9–14) in Guide.
 
-You are NOT a chatbot. You teach like you are standing in front of the class with a real Gemara open — Mishnah/Gemara in the middle, Rashi and Tosafot on the sides.
+This is NOT a classroom speech to a group. Talk only to THIS student, like you are sitting across the table with one open Gemara.
 
-HOW A REAL CLASS SOUNDS:
-- Start by pointing at the line on the page: "Look here in the middle…" or "Look at Rashi on the side…"
-- Translate the idea into clear English a child can follow.
-- Explain WHY the Gemara is asking this, not only WHAT it says.
-- When Rashi or Tosafot for this line is provided, you may open it with the child: "Now look at Rashi — he says…"
-- Use simple classroom examples (a dollar on the sidewalk, a labeled water bottle, coins that spilled).
-- Then check understanding with ONE short question.
-- Keep each turn short: about 4–8 spoken sentences.
-- If the child speaks up with a question (even if they say "Rebbe…" first), answer like a Rebbe in class.
+HOW YOU SOUND:
+- Speak to "you", never "everyone", never "class", never "boys", never "sit down".
+- Point at the page: "Look here…" / "See what Rashi says on the side…"
+- Main language: clear English.
+- Hebrew: use Hebrew words when teaching the Gemara term, and explain them. If the student asks in Hebrew or asks what a Hebrew word means, answer that.
+- Keep it VERY short: 2 to 4 spoken sentences. Then stop. One short check-in question only if it helps.
+- Warm, patient, real. Not theatrical. Not a chatbot.
 
 STRICT ACCURACY:
-- Use ONLY the current Gemara line, any Rashi/Tosafot text provided for this line, and the curriculum notes.
-- Do not invent Rashi, Tosafos, or later opinions that are not in the provided text.
-- Do not give practical psak for a real-life case. Teach the sugya, then say to ask a real Rebbe/posek for a real case.
-- If unsure, say so plainly.
+- Use ONLY the Gemara line, any Rashi/Tosafot provided, and the curriculum notes.
+- Do not invent meforshim.
+- No practical psak for real life — teach the sugya; for a real case tell them to ask their real Rebbe.
+- If unsure, say so.
 
-VOICE ON THE PAGE:
-- Write the exact words you would say out loud in class.
-- Plain English. Short sentences. No markdown headings, no bullets, no emoji, no "As an AI".
-- You may keep one Hebrew term in quotes and immediately explain it, e.g. "siman" — an identifying mark.`
+OUTPUT:
+- Exactly what you would say out loud.
+- No markdown, no bullets, no emoji, no stage directions.`
 
 export const REBBE_VOICES = [
   {
     id: 'Sadaltager',
-    label: 'Steady Rebbe',
-    blurb: 'Clear and knowledgeable — great for class.',
+    label: 'Steady',
+    blurb: 'Clear and knowledgeable.',
   },
   {
     id: 'Charon',
-    label: 'Patient Rebbe',
-    blurb: 'Calm and informative.',
+    label: 'Patient',
+    blurb: 'Calm and careful.',
   },
   {
     id: 'Gacrux',
-    label: 'Warm Rebbe',
-    blurb: 'Mature, gentle classroom tone.',
+    label: 'Warm',
+    blurb: 'Gentle and mature.',
   },
   {
     id: 'Schedar',
-    label: 'Even Rebbe',
-    blurb: 'Steady pacing, easy to follow.',
-  },
-  {
-    id: 'Alnilam',
-    label: 'Firm Rebbe',
-    blurb: 'Confident and focused.',
+    label: 'Even',
+    blurb: 'Steady pacing.',
   },
 ]
+
+function clip(text, max = 420) {
+  const s = String(text || '').trim()
+  if (s.length <= max) return s
+  return `${s.slice(0, max)}…`
+}
 
 export function buildCurriculumBlock() {
   return [
     `Topic: ${curriculum.title}`,
     `Overview: ${curriculum.overview}`,
-    'Key concepts:',
-    ...curriculum.concepts.map((x) => `- ${x.term}: ${x.kidExplanation}`),
-    'Halacha anchors (teach as concepts, not psak):',
-    ...curriculum.halachaAnchors.map((x) => `- ${x}`),
-    'Teaching tips:',
-    ...curriculum.teachingTips.map((x) => `- ${x}`),
+    'Key ideas:',
+    ...curriculum.concepts.slice(0, 4).map((x) => `- ${x.term}: ${x.kidExplanation}`),
   ].join('\n')
+}
+
+async function withRetry(fn, tries = 3) {
+  let lastErr
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastErr = err
+      const status = err?.status || err?.statusCode
+      const msg = String(err?.message || '')
+      const retryable =
+        status === 429 ||
+        status === 503 ||
+        /high demand|quota|rate|unavailable|Resource exhausted/i.test(msg)
+      if (!retryable || i === tries - 1) throw err
+      await new Promise((r) => setTimeout(r, 800 * (i + 1) * (i + 1)))
+    }
+  }
+  throw lastErr
 }
 
 export async function generateRebbeReply(body) {
@@ -95,61 +109,59 @@ export async function generateRebbeReply(body) {
   const model = genAI.getGenerativeModel({
     model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
     systemInstruction: SYSTEM_PROMPT,
+    generationConfig: {
+      maxOutputTokens: 220,
+      temperature: 0.6,
+    },
   })
 
   const context = [
-    `Current page: ${gemaraRef}`,
-    `Line index: ${lineIndex}`,
-    `Hebrew in the CENTER of the child's Gemara page: ${hebrewLine || '(empty)'}`,
-    `Teacher crib notes only (William Davidson / Sefaria English — do NOT read this verbatim to the child; teach it in your own classroom English): ${englishLine || '(none)'}`,
-    `Rashi on the side for this line (use only if relevant; quote simply): ${rashiForLine || '(none on this line)'}`,
-    `Tosafot on the side for this line (use only if relevant; keep very light for kids): ${tosafotForLine || '(none on this line)'}`,
-    '',
-    'CURRICULUM NOTES:',
+    `Page: ${gemaraRef} (line ${lineIndex})`,
+    `Center Hebrew: ${clip(hebrewLine, 360)}`,
+    `English crib (do not read verbatim): ${clip(englishLine, 280)}`,
+    `Rashi for this line: ${clip(rashiForLine, 280) || '(none)'}`,
+    `Tosafot for this line: ${clip(tosafotForLine, 180) || '(none)'}`,
     buildCurriculumBlock(),
-    '',
     mode === 'teach'
-      ? 'Open class on this line. Point to the middle of the page (and Rashi if helpful), explain in English like a real Rebbe, then ask one check-in question.'
+      ? 'Teach this line to the one student in front of you. Very short.'
       : mode === 'continue'
-        ? 'Continue the shiur from where you left off. Stay on this line unless the child is ready to move on.'
-        : "The child asked a question out loud or by typing. Answer like a Rebbe in class — clear, kind, and stuck to the sources.",
+        ? 'Continue briefly with the same student.'
+        : 'Answer the student. They may mix English and Hebrew.',
   ].join('\n')
 
   const history = messages
     .filter((m) => m && (m.role === 'user' || m.role === 'model'))
-    .slice(-12)
+    .slice(-6)
     .map((m) => ({
       role: m.role === 'model' ? 'model' : 'user',
-      parts: [{ text: String(m.content || '') }],
+      parts: [{ text: clip(m.content, 500) }],
     }))
 
-  const chat = model.startChat({
-    history: [
-      {
-        role: 'user',
-        parts: [{ text: `Session context (not spoken by the child):\n${context}` }],
-      },
-      {
-        role: 'model',
-        parts: [
-          {
-            text: 'Understood. I will teach this line like a classroom Rebbe, in clear English, only from the Gemara and curriculum notes.',
-          },
-        ],
-      },
-      ...history,
-    ],
+  return withRetry(async () => {
+    const chat = model.startChat({
+      history: [
+        {
+          role: 'user',
+          parts: [{ text: `Context:\n${context}` }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Understood. Short one-on-one teaching only.' }],
+        },
+        ...history,
+      ],
+    })
+
+    const prompt =
+      mode === 'teach'
+        ? 'Teach this line now.'
+        : mode === 'continue'
+          ? 'Continue briefly.'
+          : String(question || 'Please explain that more simply.')
+
+    const result = await chat.sendMessage(prompt)
+    return clip(result.response.text(), 700)
   })
-
-  const prompt =
-    mode === 'teach'
-      ? 'Please teach this line now, out loud, like class is starting.'
-      : mode === 'continue'
-        ? 'Please continue the shiur.'
-        : String(question || 'Can you explain that again more simply?')
-
-  const result = await chat.sendMessage(prompt)
-  return result.response.text()
 }
 
 function pcmToWavBase64(pcmBase64, sampleRate = 24000) {
@@ -172,6 +184,8 @@ function pcmToWavBase64(pcmBase64, sampleRate = 24000) {
   return Buffer.concat([header, pcm]).toString('base64')
 }
 
+const speechCache = new Map()
+
 export async function synthesizeRebbeSpeech(text, voiceName = 'Sadaltager') {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -185,70 +199,77 @@ export async function synthesizeRebbeSpeech(text, voiceName = 'Sadaltager') {
   const model =
     process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts'
 
-  const spoken = String(text || '').trim()
+  const spoken = clip(String(text || '').trim(), 520)
   if (!spoken) {
     const error = new Error('Nothing to speak')
     error.status = 400
     throw error
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: `Speak as a warm, patient Gemara Rebbe teaching children in a quiet classroom. Natural pacing, clear English, no theatrics:\n\n${spoken}`,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: voice,
+  const cacheKey = `${voice}::${spoken}`
+  if (speechCache.has(cacheKey)) return speechCache.get(cacheKey)
+
+  const payload = await withRetry(async () => {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Speak warmly to one student, natural and calm:\n${spoken}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: voice,
+                },
               },
             },
           },
-        },
-      }),
-    },
-  )
+        }),
+      },
+    )
 
-  const data = await res.json()
-  if (!res.ok) {
-    const message =
-      data?.error?.message ||
-      `Speech generation failed (${res.status})`
-    const error = new Error(message)
-    error.status = 500
-    throw error
-  }
+    const data = await res.json()
+    if (!res.ok) {
+      const message =
+        data?.error?.message ||
+        `Speech generation failed (${res.status})`
+      const error = new Error(message)
+      error.status = res.status
+      throw error
+    }
 
-  const part = data?.candidates?.[0]?.content?.parts?.find(
-    (p) => p.inlineData?.data,
-  )
-  const inline = part?.inlineData
-  if (!inline?.data) {
-    const error = new Error('No audio returned from Gemini TTS')
-    error.status = 500
-    throw error
-  }
+    const part = data?.candidates?.[0]?.content?.parts?.find(
+      (p) => p.inlineData?.data,
+    )
+    const inline = part?.inlineData
+    if (!inline?.data) {
+      const error = new Error('No audio returned from Gemini TTS')
+      error.status = 500
+      throw error
+    }
 
-  const mime = String(inline.mimeType || '')
-  const rateMatch = mime.match(/rate=(\d+)/i)
-  const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000
-  const wavBase64 = pcmToWavBase64(inline.data, sampleRate)
+    const mime = String(inline.mimeType || '')
+    const rateMatch = mime.match(/rate=(\d+)/i)
+    const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000
+    return {
+      mimeType: 'audio/wav',
+      audioBase64: pcmToWavBase64(inline.data, sampleRate),
+      voice,
+    }
+  })
 
-  return {
-    mimeType: 'audio/wav',
-    audioBase64: wavBase64,
-    voice,
-  }
+  if (speechCache.size > 40) speechCache.clear()
+  speechCache.set(cacheKey, payload)
+  return payload
 }

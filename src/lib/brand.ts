@@ -3,28 +3,23 @@ export const APP_NAME = 'Guide'
 export const REBBE_VOICES = [
   {
     id: 'Sadaltager',
-    label: 'Steady Rebbe',
-    blurb: 'Clear and knowledgeable — great for class.',
+    label: 'Steady',
+    blurb: 'Clear and knowledgeable.',
   },
   {
     id: 'Charon',
-    label: 'Patient Rebbe',
-    blurb: 'Calm and informative.',
+    label: 'Patient',
+    blurb: 'Calm and careful.',
   },
   {
     id: 'Gacrux',
-    label: 'Warm Rebbe',
-    blurb: 'Mature, gentle classroom tone.',
+    label: 'Warm',
+    blurb: 'Gentle and mature.',
   },
   {
     id: 'Schedar',
-    label: 'Even Rebbe',
-    blurb: 'Steady pacing, easy to follow.',
-  },
-  {
-    id: 'Alnilam',
-    label: 'Firm Rebbe',
-    blurb: 'Confident and focused.',
+    label: 'Even',
+    blurb: 'Steady pacing.',
   },
 ] as const
 
