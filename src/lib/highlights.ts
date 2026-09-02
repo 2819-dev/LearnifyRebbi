@@ -85,3 +85,49 @@ export function fallbackHighlights(
   }
   return out
 }
+
+export type PhraseChunk = {
+  hebrew: string
+  english: string
+  explain: string
+  nextOffset: number
+  done: boolean
+}
+
+/** Take ~2–4 Hebrew words starting at offset (not one-by-one). */
+export function chunkPhrase(
+  hebrewLine: string,
+  englishLine: string,
+  offset = 0,
+): PhraseChunk {
+  const words = String(hebrewLine || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (words.length === 0 || offset >= words.length) {
+    return {
+      hebrew: '',
+      english: '',
+      explain: 'That is this piece of the line. Ask me anything.',
+      nextOffset: offset,
+      done: true,
+    }
+  }
+  const remaining = words.length - offset
+  const take =
+    remaining <= 2 ? remaining : remaining === 4 ? 2 : Math.min(3, remaining)
+  const slice = words.slice(offset, offset + take)
+  const hebrew = slice.join(' ')
+  const english = String(englishLine || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 140)
+  const nextOffset = offset + take
+  return {
+    hebrew,
+    english: english || 'Look carefully at these words on the page.',
+    explain: `Good. Keep "${hebrew}" in mind — we will use it as we learn.`,
+    nextOffset,
+    done: nextOffset >= words.length,
+  }
+}

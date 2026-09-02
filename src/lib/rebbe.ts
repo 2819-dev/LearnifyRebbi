@@ -136,26 +136,31 @@ function pickBrowserVoice(lang?: string): SpeechSynthesisVoice | null {
   const wantHe = lang?.toLowerCase().startsWith('he')
   if (wantHe) {
     return (
+      voices.find((v) => /he-IL|hebrew/i.test(`${v.lang} ${v.name}`)) ||
       voices.find((v) => /^he(-|_)/i.test(v.lang)) ||
-      voices.find((v) => /hebrew|ivrit/i.test(`${v.name} ${v.lang}`)) ||
       null
     )
   }
-  const preferred = [
+
+  const female = /female|zira|susan|samantha|karen|moira|tessa|fiona|victoria|siri|jenny|aria|sara|helen|hazel/i
+  const malePreferred = [
     /google uk english male/i,
-    /microsoft (guy|davis|tony|mark|andrew)/i,
-    /\bdaniel\b/i,
-    /\bdavid\b/i,
-    /\balex\b/i,
-    /google us english/i,
-    /english \(united states\)/i,
-    /^en(-|_)/i,
+    /microsoft (guy|davis|tony|mark|andrew|christopher|eric|george)/i,
+    /\b(daniel|david|james|thomas|aaron|alex|fred|bruce|arthur)\b/i,
+    /english male/i,
   ]
-  for (const pattern of preferred) {
-    const hit = voices.find((v) => pattern.test(`${v.name} ${v.lang}`))
+  const english = voices.filter(
+    (v) => /^en(-|_)/i.test(v.lang) && !female.test(`${v.name} ${v.lang}`),
+  )
+  for (const pattern of malePreferred) {
+    const hit = english.find((v) => pattern.test(`${v.name} ${v.lang}`))
     if (hit) return hit
   }
-  return voices.find((v) => v.lang.toLowerCase().startsWith('en')) || null
+  return (
+    english[0] ||
+    voices.find((v) => v.lang.toLowerCase().startsWith('en')) ||
+    null
+  )
 }
 
 function estimateSpeechMs(text: string): number {
@@ -166,6 +171,7 @@ function estimateSpeechMs(text: string): number {
 export type BrowserSpeechOptions = PlayHandlers & {
   lang?: string
   rate?: number
+  pitch?: number
 }
 
 export async function playBrowserSpeech(
@@ -173,7 +179,7 @@ export async function playBrowserSpeech(
   handlers?: BrowserSpeechOptions | (() => void),
 ): Promise<void> {
   const opts = typeof handlers === 'function' ? { onend: handlers } : handlers || {}
-  const { onend, onDuration, lang, rate } = opts
+  const { onend, onDuration, lang, rate, pitch } = opts
 
   if (typeof window === 'undefined' || !window.speechSynthesis) {
     throw new Error('No speaker voice available in this browser.')
@@ -190,8 +196,10 @@ export async function playBrowserSpeech(
       const voice = pickBrowserVoice(lang)
       if (voice) utter.voice = voice
       if (lang) utter.lang = lang
-      utter.rate = rate ?? (lang?.startsWith('he') ? 0.85 : 0.92)
-      utter.pitch = 0.92
+      const isHe = Boolean(lang?.startsWith('he'))
+      utter.rate = rate ?? (isHe ? 0.78 : 0.9)
+      // Slightly lower pitch reads as a calm adult man on most engines.
+      utter.pitch = pitch ?? (isHe ? 0.9 : 0.85)
       utter.volume = 1
       utter.onend = () => {
         resolve()
@@ -206,7 +214,7 @@ export async function playBrowserSpeech(
     if (window.speechSynthesis.getVoices().length === 0) {
       window.speechSynthesis.onvoiceschanged = () => speakNow()
       window.speechSynthesis.getVoices()
-      setTimeout(speakNow, 250)
+      setTimeout(speakNow, 180)
     } else {
       speakNow()
     }

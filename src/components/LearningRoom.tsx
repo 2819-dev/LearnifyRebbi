@@ -3,6 +3,7 @@ import { GemaraDaf } from './GemaraDaf'
 import { APP_NAME, REBBE_VOICES } from '../lib/brand'
 import { HIGHLIGHT_TERM_HINTS } from '../lib/curriculum'
 import {
+  chunkPhrase,
   fallbackHighlights,
   realWordIndexes,
   runReadingWalk,
@@ -115,7 +116,9 @@ export function LearningRoom({
   const micMutedRef = useRef(false)
   const welcomedRef = useRef(false)
   const pendingExplainRef = useRef('')
+  const pendingExplainPromiseRef = useRef<Promise<string> | null>(null)
   const repeatTargetRef = useRef('')
+  const phraseOffsetRef = useRef(0)
   const phaseRef = useRef<DrillPhase>('idle')
   const lastLessonRef = useRef<RebbeResponse | null>(null)
   const walkStopRef = useRef<(() => void) | null>(null)
@@ -227,7 +230,8 @@ export function LearningRoom({
       if (opts?.hebrew) {
         await playBrowserSpeech(text, {
           lang: 'he-IL',
-          rate: 0.82,
+          rate: 0.76,
+          pitch: 0.9,
           onDuration: (ms) => startReadingWalk(ms),
         })
       } else if (opts?.audio) {
@@ -238,6 +242,7 @@ export function LearningRoom({
         await playBrowserSpeech(text, {
           lang: 'en-US',
           rate: 0.9,
+          pitch: 0.85,
           onDuration: (ms) => startReadingWalk(ms),
         })
       }
@@ -275,10 +280,21 @@ export function LearningRoom({
   }
 
   async function finishExplain(requestId: number) {
-    const explain = pendingExplainRef.current
     setPhase('idle')
+    if (requestId !== requestIdRef.current) return
+    let explain = pendingExplainRef.current
+    if (pendingExplainPromiseRef.current) {
+      try {
+        const fromApi = await pendingExplainPromiseRef.current
+        if (fromApi) explain = fromApi
+      } catch {
+        // keep local fallback
+      }
+    }
+    pendingExplainPromiseRef.current = null
     if (!explain) return
     if (requestId !== requestIdRef.current) return
+    pendingExplainRef.current = explain
     await speakUtterance(explain)
   }
 
@@ -309,12 +325,53 @@ export function LearningRoom({
       await speakUtterance('Now you say it.')
       if (requestId !== requestIdRef.current) return
       setPhase('listening-repeat')
-      micRef.current?.setLang(looksHebrew(repeatTargetRef.current) ? 'he-IL' : 'en-US')
+      micRef.current?.setLang(
+        looksHebrew(repeatTargetRef.current) ? 'he-IL' : 'en-US',
+      )
       if (!micMutedRef.current) micRef.current?.resume()
       return
     }
 
     await finishExplain(requestId)
+  }
+
+  function startExplainFetch(
+    mode: 'teach' | 'continue',
+    ctx: NonNullable<ReturnType<typeof currentContext>>,
+    localExplain: string,
+    hebrewChunk: string,
+  ) {
+    pendingExplainRef.current = localExplain
+    const promise = askRebbe({
+      messages: messagesRef.current,
+      gemaraRef: ctx.current.ref,
+      hebrewLine: ctx.current.hebrew[ctx.idx] || '',
+      englishLine: ctx.current.english[ctx.idx] || '',
+      lineIndex: ctx.idx,
+      mode,
+      voice: voiceRef.current,
+      rashiForLine: ctx.rashiForLine,
+      tosafotForLine: ctx.tosafotForLine,
+      needWelcome: false,
+      includeSpeech: false,
+      question: undefined,
+    })
+      .then((lesson) => {
+        if (lesson.highlights?.length) applyMarks(lesson.highlights, hebrewChunk)
+        const explain = lesson.explain || lesson.reply || localExplain
+        pendingExplainRef.current = explain
+        const summary = [hebrewChunk, lesson.english, explain]
+          .filter(Boolean)
+          .join(' — ')
+        setMessages((prev) =>
+          prev.length
+            ? [...prev, { role: 'model', content: summary }]
+            : [{ role: 'model', content: summary }],
+        )
+        return explain
+      })
+      .catch(() => localExplain)
+    pendingExplainPromiseRef.current = promise
   }
 
   async function teachCurrentLine() {
@@ -327,31 +384,35 @@ export function LearningRoom({
     setMessages([])
     stopSpeaking()
     clearWalk()
+    phraseOffsetRef.current = 0
+
+    const hebrewLine = ctx.current.hebrew[ctx.idx] || ''
+    const englishLine = ctx.current.english[ctx.idx] || ''
+    const chunk = chunkPhrase(hebrewLine, englishLine, 0)
+    phraseOffsetRef.current = chunk.nextOffset
+
+    const welcome = !welcomedRef.current
+      ? 'Welcome. We will learn this line together, a few words at a time.'
+      : ''
+
+    const instant: RebbeResponse = {
+      reply: chunk.explain,
+      welcome,
+      hebrew: chunk.hebrew,
+      english: chunk.english,
+      explain: chunk.explain,
+      highlights: fallbackHighlights(chunk.hebrew, HIGHLIGHT_TERM_HINTS),
+    }
+
+    // Fetch richer explanation in the background while we already speak.
+    startExplainFetch('teach', ctx, chunk.explain, chunk.hebrew)
+
+    setBusy(false)
     try {
-      const lesson = await askRebbe({
-        messages: [],
-        gemaraRef: ctx.current.ref,
-        hebrewLine: ctx.current.hebrew[ctx.idx] || '',
-        englishLine: ctx.current.english[ctx.idx] || '',
-        lineIndex: ctx.idx,
-        mode: 'teach',
-        voice: voiceRef.current,
-        rashiForLine: ctx.rashiForLine,
-        tosafotForLine: ctx.tosafotForLine,
-        needWelcome: !welcomedRef.current,
-        includeSpeech: false,
-      })
-      if (id !== requestIdRef.current) return
-      const summary = [lesson.hebrew, lesson.english, lesson.explain]
-        .filter(Boolean)
-        .join(' — ')
-      setMessages([{ role: 'model', content: summary || lesson.reply }])
-      setBusy(false)
-      await runDrill(lesson, id)
+      await runDrill(instant, id)
     } catch (err) {
       if (id !== requestIdRef.current) return
       setError(friendlyError(err))
-      setBusy(false)
       setNeedsGesture(true)
     }
   }
@@ -366,49 +427,59 @@ export function LearningRoom({
     stopSpeaking()
     clearWalk()
     setSpeaking(false)
+
     try {
-      const prior = messagesRef.current
-      const lesson = await askRebbe({
-        messages: prior,
-        gemaraRef: ctx.current.ref,
-        hebrewLine: ctx.current.hebrew[ctx.idx] || '',
-        englishLine: ctx.current.english[ctx.idx] || '',
-        lineIndex: ctx.idx,
-        mode,
-        question: q,
-        voice: voiceRef.current,
-        rashiForLine: ctx.rashiForLine,
-        tosafotForLine: ctx.tosafotForLine,
-        needWelcome: false,
-        includeSpeech: mode === 'ask',
-      })
-      if (id !== requestIdRef.current) return
-
-      const spoken =
-        mode === 'ask'
-          ? lesson.reply || lesson.explain
-          : [lesson.hebrew, lesson.english, lesson.explain]
-              .filter(Boolean)
-              .join(' — ')
-
-      const next: ChatMessage[] =
-        mode === 'ask' && q
-          ? [
-              ...prior,
-              { role: 'user', content: q },
-              { role: 'model', content: spoken || lesson.reply },
-            ]
-          : [...prior, { role: 'model', content: spoken || lesson.reply }]
-      setMessages(next)
-      setBusy(false)
-
       if (mode === 'ask') {
+        const prior = messagesRef.current
+        const lesson = await askRebbe({
+          messages: prior,
+          gemaraRef: ctx.current.ref,
+          hebrewLine: ctx.current.hebrew[ctx.idx] || '',
+          englishLine: ctx.current.english[ctx.idx] || '',
+          lineIndex: ctx.idx,
+          mode: 'ask',
+          question: q,
+          voice: voiceRef.current,
+          rashiForLine: ctx.rashiForLine,
+          tosafotForLine: ctx.tosafotForLine,
+          needWelcome: false,
+          includeSpeech: false,
+        })
+        if (id !== requestIdRef.current) return
         applyMarks(lesson.highlights)
-        await speakUtterance(lesson.reply || lesson.explain || '')
+        const spoken = lesson.reply || lesson.explain || 'Good question.'
+        setMessages([
+          ...prior,
+          ...(q ? [{ role: 'user' as const, content: q }] : []),
+          { role: 'model', content: spoken },
+        ])
+        setBusy(false)
+        await speakUtterance(spoken)
         return
       }
 
-      await runDrill(lesson, id)
+      // Continue: next ~3-word chunk immediately; explain loads in parallel.
+      const hebrewLine = ctx.current.hebrew[ctx.idx] || ''
+      const englishLine = ctx.current.english[ctx.idx] || ''
+      let offset = phraseOffsetRef.current
+      let chunk = chunkPhrase(hebrewLine, englishLine, offset)
+      if (chunk.done && !chunk.hebrew) {
+        offset = 0
+        chunk = chunkPhrase(hebrewLine, englishLine, 0)
+      }
+      phraseOffsetRef.current = chunk.nextOffset
+
+      const instant: RebbeResponse = {
+        reply: chunk.explain,
+        welcome: '',
+        hebrew: chunk.hebrew,
+        english: chunk.english,
+        explain: chunk.explain,
+        highlights: fallbackHighlights(chunk.hebrew, HIGHLIGHT_TERM_HINTS),
+      }
+      startExplainFetch('continue', ctx, chunk.explain, chunk.hebrew)
+      setBusy(false)
+      await runDrill(instant, id)
     } catch (err) {
       if (id !== requestIdRef.current) return
       setError(friendlyError(err))
