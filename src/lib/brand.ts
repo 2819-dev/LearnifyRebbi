@@ -1,5 +1,23 @@
 export const APP_NAME = 'Guide'
 
+export const ONBOARDING_KEY = 'guide.onboarding.v1'
+
+export function hasCompletedOnboarding(): boolean {
+  try {
+    return localStorage.getItem(ONBOARDING_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function markOnboardingDone(): void {
+  try {
+    localStorage.setItem(ONBOARDING_KEY, '1')
+  } catch {
+    // ignore
+  }
+}
+
 export const REBBE_VOICES = [
   {
     id: 'Sadaltager',

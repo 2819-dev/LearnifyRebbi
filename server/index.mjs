@@ -51,8 +51,8 @@ app.post('/api/rebbe', async (c) => {
       return c.json(spoken)
     }
 
-    const reply = await generateRebbeReply(body)
-    return c.json({ reply })
+    const lesson = await generateRebbeReply(body)
+    return c.json({ reply: lesson.speech, highlights: lesson.highlights })
   } catch (err) {
     console.error(err)
     return c.json(

@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { GemaraDaf } from './GemaraDaf'
 import { APP_NAME, REBBE_VOICES } from '../lib/brand'
+import { HIGHLIGHT_TERM_HINTS } from '../lib/curriculum'
+import {
+  fallbackHighlights,
+  realWordIndexes,
+  runReadingWalk,
+  splitHebrewWords,
+  type ActiveHighlights,
+} from '../lib/highlights'
 import { StudentMic, looksHebrew, micSupported } from '../lib/mic'
 import {
   askRebbe,
@@ -10,6 +18,7 @@ import {
   unlockAudio,
   type ChatMessage,
   type SpeakPayload,
+  type TextHighlight,
 } from '../lib/rebbe'
 import {
   defaultStartIndex,
@@ -23,6 +32,7 @@ type Props = {
   voiceId: string
   onExit: () => void
   onVoiceIdChange: (id: string) => void
+  onShowTour?: () => void
 }
 
 function lineCommentText(
@@ -46,7 +56,7 @@ function friendlyError(err: unknown): string {
     return 'Please try again in a moment.'
   }
   if (/play|sound|Audio|NotAllowedError/i.test(msg)) {
-    return 'Tap Replay to continue.'
+    return 'Tap Replay to hear the Rebbe.'
   }
   return 'Something went wrong. Please try again.'
 }
@@ -56,6 +66,7 @@ export function LearningRoom({
   voiceId,
   onExit,
   onVoiceIdChange,
+  onShowTour,
 }: Props) {
   const [page, setPage] = useState<GemaraPage | null>(null)
   const [lineIndex, setLineIndex] = useState(0)
@@ -68,6 +79,7 @@ export function LearningRoom({
   const [micMuted, setMicMuted] = useState(false)
   const [micListening, setMicListening] = useState(false)
   const [needsGesture, setNeedsGesture] = useState(false)
+  const [highlights, setHighlights] = useState<ActiveHighlights | null>(null)
   const [micAvailable] = useState(() => micSupported())
   const messagesRef = useRef<ChatMessage[]>([])
   const pageRef = useRef<GemaraPage | null>(null)
@@ -78,6 +90,8 @@ export function LearningRoom({
   const micRef = useRef<StudentMic | null>(null)
   const micMutedRef = useRef(false)
   const lastReplyRef = useRef('')
+  const walkStopRef = useRef<(() => void) | null>(null)
+  const marksRef = useRef<TextHighlight[]>([])
 
   useEffect(() => {
     messagesRef.current = messages
@@ -98,31 +112,69 @@ export function LearningRoom({
     micMutedRef.current = micMuted
   }, [micMuted])
 
+  function clearWalk() {
+    walkStopRef.current?.()
+    walkStopRef.current = null
+  }
+
   useEffect(
     () => () => {
       stopSpeaking()
+      clearWalk()
       micRef.current?.stop()
     },
     [],
   )
 
+  function applyMarks(marks: TextHighlight[]) {
+    const line = pageRef.current?.hebrew[lineRef.current] || ''
+    const merged =
+      marks.length > 0
+        ? marks
+        : fallbackHighlights(line, HIGHLIGHT_TERM_HINTS)
+    marksRef.current = merged
+    setHighlights({ readingIndex: null, marks: merged })
+  }
+
+  function startReadingWalk(durationMs: number) {
+    clearWalk()
+    const line = pageRef.current?.hebrew[lineRef.current] || ''
+    const parts = splitHebrewWords(line)
+    const real = realWordIndexes(parts)
+    walkStopRef.current = runReadingWalk(real.length, durationMs, (idx) => {
+      setHighlights({
+        readingIndex: idx,
+        marks: marksRef.current,
+      })
+    })
+  }
+
   async function playAudio(audio: SpeakPayload | null) {
     if (!audio) {
       setSpeaking(false)
+      clearWalk()
       if (!micMutedRef.current) micRef.current?.resume()
       return
     }
     setSpeaking(true)
     micRef.current?.pause()
     try {
-      await playBase64Audio(audio, () => {
-        setSpeaking(false)
-        setNeedsGesture(false)
-        if (!micMutedRef.current) micRef.current?.resume()
+      await playBase64Audio(audio, {
+        onDuration: (ms) => startReadingWalk(ms),
+        onend: () => {
+          setSpeaking(false)
+          setNeedsGesture(false)
+          clearWalk()
+          setHighlights((prev) =>
+            prev ? { ...prev, readingIndex: null } : prev,
+          )
+          if (!micMutedRef.current) micRef.current?.resume()
+        },
       })
       setNeedsGesture(false)
     } catch (err) {
       setSpeaking(false)
+      clearWalk()
       setNeedsGesture(true)
       setError(friendlyError(err))
       if (!micMutedRef.current) micRef.current?.resume()
@@ -140,6 +192,7 @@ export function LearningRoom({
       setNeedsGesture(true)
       setError(friendlyError(err))
       setSpeaking(false)
+      clearWalk()
       if (!micMutedRef.current) micRef.current?.resume()
     }
   }
@@ -164,8 +217,9 @@ export function LearningRoom({
     setError(null)
     setMessages([])
     stopSpeaking()
+    clearWalk()
     try {
-      const { reply } = await askRebbe({
+      const { reply, highlights: marks } = await askRebbe({
         messages: [],
         gemaraRef: ctx.current.ref,
         hebrewLine: ctx.current.hebrew[ctx.idx] || '',
@@ -177,6 +231,7 @@ export function LearningRoom({
         tosafotForLine: ctx.tosafotForLine,
       })
       if (id !== requestIdRef.current) return
+      applyMarks(marks)
       setMessages([{ role: 'model', content: reply }])
       setBusy(false)
       await speakText(reply, id)
@@ -195,10 +250,11 @@ export function LearningRoom({
     setBusy(true)
     setError(null)
     stopSpeaking()
+    clearWalk()
     setSpeaking(false)
     try {
       const prior = messagesRef.current
-      const { reply } = await askRebbe({
+      const { reply, highlights: marks } = await askRebbe({
         messages: prior,
         gemaraRef: ctx.current.ref,
         hebrewLine: ctx.current.hebrew[ctx.idx] || '',
@@ -211,6 +267,7 @@ export function LearningRoom({
         tosafotForLine: ctx.tosafotForLine,
       })
       if (id !== requestIdRef.current) return
+      applyMarks(marks)
       const next: ChatMessage[] =
         mode === 'ask' && q
           ? [
@@ -261,6 +318,7 @@ export function LearningRoom({
     setLoadingPage(true)
     setPageError(null)
     setMessages([])
+    setHighlights(null)
     fetchGemaraPage(daf)
       .then((data) => {
         if (cancelled) return
@@ -282,6 +340,7 @@ export function LearningRoom({
       cancelled = true
       requestIdRef.current += 1
       stopSpeaking()
+      clearWalk()
       stopMic()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -292,6 +351,7 @@ export function LearningRoom({
     if (!current) return
     if (nextIndex < 0 || nextIndex >= current.hebrew.length) return
     stopSpeaking()
+    clearWalk()
     setSpeaking(false)
     setLineIndex(nextIndex)
     lineRef.current = nextIndex
@@ -332,7 +392,7 @@ export function LearningRoom({
     : busy
       ? 'Preparing'
       : needsGesture
-        ? 'Ready when you are'
+        ? 'Tap Replay to hear'
         : micMuted
           ? 'Muted'
           : micListening
@@ -342,9 +402,16 @@ export function LearningRoom({
   return (
     <div className="shell room">
       <header className="room-bar">
-        <button type="button" className="linkish" onClick={onExit}>
-          {APP_NAME}
-        </button>
+        <div className="room-brand">
+          <button type="button" className="linkish" onClick={onExit}>
+            {APP_NAME}
+          </button>
+          {onShowTour && (
+            <button type="button" className="linkish tiny" onClick={onShowTour}>
+              How it works
+            </button>
+          )}
+        </div>
         <div className="room-meta">
           <h1>{page?.ref || `Bava Metzia ${daf}`}</h1>
           <p dir="rtl" lang="he">
@@ -367,7 +434,9 @@ export function LearningRoom({
       </header>
 
       {loadingPage && <p className="soft">Opening…</p>}
-      {pageError && <p className="bad">Could not open this page. Please try again.</p>}
+      {pageError && (
+        <p className="bad">Could not open this page. Please try again.</p>
+      )}
 
       {page && (
         <div className="learn voice-only">
@@ -376,6 +445,7 @@ export function LearningRoom({
               page={page}
               lineIndex={lineIndex}
               onSelectLine={goLine}
+              highlights={highlights}
             />
             <div className="pager">
               <button
@@ -408,7 +478,7 @@ export function LearningRoom({
             <div className="voice-dock">
               <button
                 type="button"
-                className="btn-main hear-btn"
+                className={`btn-main hear-btn${needsGesture ? ' pulse' : ''}`}
                 onClick={() => void hearAgainFromTap()}
                 disabled={busy && !needsGesture}
               >
@@ -433,7 +503,11 @@ export function LearningRoom({
                 disabled={!speaking}
                 onClick={() => {
                   stopSpeaking()
+                  clearWalk()
                   setSpeaking(false)
+                  setHighlights((prev) =>
+                    prev ? { ...prev, readingIndex: null } : prev,
+                  )
                   if (!micMutedRef.current) micRef.current?.resume()
                 }}
               >

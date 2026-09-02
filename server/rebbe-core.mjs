@@ -5,47 +5,37 @@ export const APP_NAME = 'Guide'
 
 export const SYSTEM_PROMPT = `You are a Rebbe learning one-on-one with a Jewish child (about 9–14) in Guide.
 
-This is NOT a classroom speech to a group. Talk only to THIS student, like you are sitting across the table with one open Gemara.
+Talk only to THIS student. Never say everyone, class, or sit down.
 
 HOW YOU SOUND:
-- Speak to "you", never "everyone", never "class", never "boys", never "sit down".
-- Point at the page: "Look here…" / "See what Rashi says on the side…"
-- Main language: clear English.
-- Hebrew: use Hebrew words when teaching the Gemara term, and explain them. If the student asks in Hebrew or asks what a Hebrew word means, answer that.
-- Keep it VERY short: 2 to 4 spoken sentences. Then stop. One short check-in question only if it helps.
-- Warm, patient, real. Not theatrical. Not a chatbot.
+- Clear English, warm and patient.
+- Use Hebrew words when teaching Gemara terms, then explain them.
+- If the student asks in Hebrew or asks what a Hebrew word means, answer that.
+- Keep it short: 2 to 4 spoken sentences.
 
 STRICT ACCURACY:
 - Use ONLY the Gemara line, any Rashi/Tosafot provided, and the curriculum notes.
 - Do not invent meforshim.
-- No practical psak for real life — teach the sugya; for a real case tell them to ask their real Rebbe.
-- If unsure, say so.
+- No practical psak for real life.
 
-OUTPUT:
-- Exactly what you would say out loud.
-- No markdown, no bullets, no emoji, no stage directions.`
+OUTPUT FORMAT (required):
+Return ONLY valid JSON with this shape:
+{
+  "speech": "exactly what you say out loud",
+  "highlights": [
+    { "word": "Hebrew or transliterated word from the line", "kind": "term|rashi|focus|reading" }
+  ]
+}
+- "speech" is spoken aloud. No markdown.
+- "highlights" marks words on the Gemara line the student should notice.
+- kind meanings: reading=words being read; term=key concept; rashi=look in Rashi; focus=decide the din.
+- Prefer 1 to 4 highlights. If none, use [].`
 
 export const REBBE_VOICES = [
-  {
-    id: 'Sadaltager',
-    label: 'Steady',
-    blurb: 'Clear and knowledgeable.',
-  },
-  {
-    id: 'Charon',
-    label: 'Patient',
-    blurb: 'Calm and careful.',
-  },
-  {
-    id: 'Gacrux',
-    label: 'Warm',
-    blurb: 'Gentle and mature.',
-  },
-  {
-    id: 'Schedar',
-    label: 'Even',
-    blurb: 'Steady pacing.',
-  },
+  { id: 'Sadaltager', label: 'Steady', blurb: 'Clear and knowledgeable.' },
+  { id: 'Charon', label: 'Patient', blurb: 'Calm and careful.' },
+  { id: 'Gacrux', label: 'Warm', blurb: 'Gentle and mature.' },
+  { id: 'Schedar', label: 'Even', blurb: 'Steady pacing.' },
 ]
 
 function clip(text, max = 420) {
@@ -59,7 +49,9 @@ export function buildCurriculumBlock() {
     `Topic: ${curriculum.title}`,
     `Overview: ${curriculum.overview}`,
     'Key ideas:',
-    ...curriculum.concepts.slice(0, 4).map((x) => `- ${x.term}: ${x.kidExplanation}`),
+    ...curriculum.concepts
+      .slice(0, 4)
+      .map((x) => `- ${x.term}: ${x.kidExplanation}`),
   ].join('\n')
 }
 
@@ -83,12 +75,37 @@ async function withRetry(fn, tries = 3) {
   throw lastErr
 }
 
+function parseLessonPayload(raw) {
+  const text = String(raw || '').trim()
+  try {
+    const start = text.indexOf('{')
+    const end = text.lastIndexOf('}')
+    if (start >= 0 && end > start) {
+      const parsed = JSON.parse(text.slice(start, end + 1))
+      const speech = clip(parsed.speech || parsed.reply || text, 700)
+      const highlights = Array.isArray(parsed.highlights)
+        ? parsed.highlights
+            .map((h) => ({
+              word: String(h.word || '').trim(),
+              kind: ['reading', 'term', 'rashi', 'focus'].includes(h.kind)
+                ? h.kind
+                : 'term',
+            }))
+            .filter((h) => h.word)
+            .slice(0, 6)
+        : []
+      return { speech, highlights }
+    }
+  } catch {
+    // fall through
+  }
+  return { speech: clip(text, 700), highlights: [] }
+}
+
 export async function generateRebbeReply(body) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
-    const error = new Error(
-      'Missing GEMINI_API_KEY. Set it in Netlify env or local .env',
-    )
+    const error = new Error('Missing GEMINI_API_KEY')
     error.status = 500
     throw error
   }
@@ -110,32 +127,40 @@ export async function generateRebbeReply(body) {
     model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
     systemInstruction: SYSTEM_PROMPT,
     generationConfig: {
-      maxOutputTokens: 220,
-      temperature: 0.6,
+      maxOutputTokens: 280,
+      temperature: 0.55,
+      responseMimeType: 'application/json',
     },
   })
 
   const context = [
     `Page: ${gemaraRef} (line ${lineIndex})`,
     `Center Hebrew: ${clip(hebrewLine, 360)}`,
-    `English crib (do not read verbatim): ${clip(englishLine, 280)}`,
-    `Rashi for this line: ${clip(rashiForLine, 280) || '(none)'}`,
-    `Tosafot for this line: ${clip(tosafotForLine, 180) || '(none)'}`,
+    `English crib: ${clip(englishLine, 280)}`,
+    `Rashi: ${clip(rashiForLine, 280) || '(none)'}`,
+    `Tosafot: ${clip(tosafotForLine, 180) || '(none)'}`,
     buildCurriculumBlock(),
     mode === 'teach'
-      ? 'Teach this line to the one student in front of you. Very short.'
+      ? 'Teach this line briefly to the one student.'
       : mode === 'continue'
-        ? 'Continue briefly with the same student.'
+        ? 'Continue briefly.'
         : 'Answer the student. They may mix English and Hebrew.',
   ].join('\n')
 
   const history = messages
     .filter((m) => m && (m.role === 'user' || m.role === 'model'))
     .slice(-6)
-    .map((m) => ({
-      role: m.role === 'model' ? 'model' : 'user',
-      parts: [{ text: clip(m.content, 500) }],
-    }))
+    .map((m) => {
+      const content = clip(m.content, 500)
+      const text =
+        m.role === 'model'
+          ? JSON.stringify({ speech: content, highlights: [] })
+          : content
+      return {
+        role: m.role === 'model' ? 'model' : 'user',
+        parts: [{ text }],
+      }
+    })
 
   return withRetry(async () => {
     const chat = model.startChat({
@@ -146,7 +171,14 @@ export async function generateRebbeReply(body) {
         },
         {
           role: 'model',
-          parts: [{ text: 'Understood. Short one-on-one teaching only.' }],
+          parts: [
+            {
+              text: JSON.stringify({
+                speech: 'Understood.',
+                highlights: [],
+              }),
+            },
+          ],
         },
         ...history,
       ],
@@ -160,7 +192,7 @@ export async function generateRebbeReply(body) {
           : String(question || 'Please explain that more simply.')
 
     const result = await chat.sendMessage(prompt)
-    return clip(result.response.text(), 700)
+    return parseLessonPayload(result.response.text())
   })
 }
 
@@ -250,6 +282,7 @@ async function requestGeminiSpeech(model, apiKey, spoken, voice) {
     audioBase64: pcmToWavBase64(inline.data, sampleRate),
     voice,
     source: 'gemini',
+    text: spoken,
   }
 }
 
@@ -285,20 +318,16 @@ export async function synthesizeRebbeSpeech(text, voiceName = 'Sadaltager') {
     } catch (err) {
       lastErr = err
       const msg = String(err?.message || '')
-      // try next model on quota / not found
-      if (!/429|quota|rate|404|not found|no longer available/i.test(msg)) {
-        break
-      }
+      if (!/429|quota|rate|404|not found|no longer available/i.test(msg)) break
     }
   }
 
-  // Signal client to use local speaker voice so the student still hears something.
   return {
     mimeType: 'browser',
     audioBase64: '',
     voice,
     source: 'browser',
     text: spoken,
-    warning: lastErr?.message || 'Gemini speech quota reached',
+    warning: lastErr?.message || 'Using local voice',
   }
 }

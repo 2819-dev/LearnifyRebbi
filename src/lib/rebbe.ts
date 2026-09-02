@@ -1,3 +1,5 @@
+import type { HighlightKind } from './curriculum'
+
 export type ChatMessage = {
   role: 'user' | 'model'
   content: string
@@ -12,8 +14,19 @@ export type SpeakPayload = {
   warning?: string
 }
 
+export type TextHighlight = {
+  word: string
+  kind: HighlightKind
+}
+
 export type RebbeResponse = {
   reply: string
+  highlights: TextHighlight[]
+}
+
+export type PlayHandlers = {
+  onend?: () => void
+  onDuration?: (durationMs: number) => void
 }
 
 type AudioWindow = Window & {
@@ -24,6 +37,23 @@ let audioCtx: AudioContext | null = null
 let currentSource: AudioBufferSourceNode | null = null
 let currentHtmlAudio: HTMLAudioElement | null = null
 let unlocked = false
+
+const KIND_SET = new Set<HighlightKind>(['reading', 'term', 'rashi', 'focus'])
+
+function normalizeHighlights(raw: unknown): TextHighlight[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => {
+      const row = item as { word?: string; kind?: string }
+      const word = String(row.word || '').trim()
+      const kind = KIND_SET.has(row.kind as HighlightKind)
+        ? (row.kind as HighlightKind)
+        : 'term'
+      return word ? { word, kind } : null
+    })
+    .filter((h): h is TextHighlight => Boolean(h))
+    .slice(0, 8)
+}
 
 function getAudioContext(): AudioContext {
   if (audioCtx) return audioCtx
@@ -47,6 +77,21 @@ export async function unlockAudio(): Promise<void> {
   source.buffer = buffer
   source.connect(ctx.destination)
   source.start(0)
+
+  // Also unlock browser speech — needed when Gemini TTS falls back.
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    try {
+      window.speechSynthesis.cancel()
+      const warm = new SpeechSynthesisUtterance(' ')
+      warm.volume = 0
+      warm.rate = 2
+      window.speechSynthesis.speak(warm)
+      window.speechSynthesis.getVoices()
+    } catch {
+      // ignore
+    }
+  }
+
   unlocked = true
 }
 
@@ -100,14 +145,25 @@ function pickBrowserVoice(): SpeechSynthesisVoice | null {
   return voices.find((v) => v.lang.toLowerCase().startsWith('en')) || null
 }
 
+function estimateSpeechMs(text: string): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length
+  return Math.max(1800, Math.round((words / 2.4) * 1000))
+}
+
 export async function playBrowserSpeech(
   text: string,
-  onend?: () => void,
+  handlers?: PlayHandlers | (() => void),
 ): Promise<void> {
+  const onend = typeof handlers === 'function' ? handlers : handlers?.onend
+  const onDuration =
+    typeof handlers === 'function' ? undefined : handlers?.onDuration
+
   if (typeof window === 'undefined' || !window.speechSynthesis) {
     throw new Error('No speaker voice available in this browser.')
   }
   stopSpeaking()
+  onDuration?.(estimateSpeechMs(text))
+
   await new Promise<void>((resolve) => {
     let started = false
     const speakNow = () => {
@@ -141,10 +197,14 @@ export async function playBrowserSpeech(
 
 export async function playBase64Audio(
   audio: SpeakPayload,
-  onend?: () => void,
+  handlers?: PlayHandlers | (() => void),
 ): Promise<void> {
+  const onend = typeof handlers === 'function' ? handlers : handlers?.onend
+  const onDuration =
+    typeof handlers === 'function' ? undefined : handlers?.onDuration
+
   if (audio.source === 'browser' || audio.mimeType === 'browser') {
-    await playBrowserSpeech(audio.text || '', onend)
+    await playBrowserSpeech(audio.text || '', { onend, onDuration })
     return
   }
 
@@ -161,6 +221,7 @@ export async function playBase64Audio(
   try {
     const arrayBuffer = base64ToArrayBuffer(audio.audioBase64)
     const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0))
+    onDuration?.(Math.max(800, Math.round(decoded.duration * 1000)))
     const source = ctx.createBufferSource()
     const gain = ctx.createGain()
     gain.gain.value = 1
@@ -182,6 +243,13 @@ export async function playBase64Audio(
   const el = new Audio(url)
   el.volume = 1
   currentHtmlAudio = el
+  el.onloadedmetadata = () => {
+    if (Number.isFinite(el.duration) && el.duration > 0) {
+      onDuration?.(Math.max(800, Math.round(el.duration * 1000)))
+    } else if (audio.text) {
+      onDuration?.(estimateSpeechMs(audio.text))
+    }
+  }
   el.onended = () => {
     if (currentHtmlAudio === el) currentHtmlAudio = null
     onend?.()
@@ -195,7 +263,7 @@ export async function playBase64Audio(
   } catch (err) {
     currentHtmlAudio = null
     if (audio.text) {
-      await playBrowserSpeech(audio.text, onend)
+      await playBrowserSpeech(audio.text, { onend, onDuration })
       return
     }
     throw new Error(
@@ -229,6 +297,7 @@ export async function askRebbe(payload: {
   }
   return {
     reply: String(data.reply || ''),
+    highlights: normalizeHighlights(data.highlights),
   }
 }
 

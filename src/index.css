@@ -555,6 +555,181 @@ button {
   line-height: 1.65;
 }
 
+.daf-word {
+  border-radius: 3px;
+  transition:
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease;
+}
+
+.daf-word.hl-reading {
+  background: rgba(212, 160, 23, 0.38);
+  box-shadow: 0 0 0 1px rgba(212, 160, 23, 0.35);
+}
+
+.daf-word.hl-term {
+  background: rgba(31, 78, 121, 0.18);
+  color: #132d49;
+}
+
+.daf-word.hl-rashi {
+  background: rgba(47, 107, 79, 0.18);
+  color: #1a3d2c;
+}
+
+.daf-word.hl-focus {
+  background: rgba(154, 74, 46, 0.2);
+  color: #5c2a16;
+}
+
+.daf-word.hl-term.hl-reading,
+.daf-word.hl-rashi.hl-reading,
+.daf-word.hl-focus.hl-reading {
+  background: rgba(212, 160, 23, 0.5);
+}
+
+.hear-btn.pulse {
+  animation: pulse-orb 1.2s ease-in-out infinite;
+}
+
+.room-brand {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.tour-link {
+  justify-self: center;
+  margin-top: 0.15rem;
+}
+
+.onboard {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background:
+    radial-gradient(700px 360px at 90% 0%, rgba(176, 137, 60, 0.18), transparent 55%),
+    radial-gradient(640px 420px at 0% 100%, rgba(31, 58, 95, 0.16), transparent 50%),
+    rgba(20, 24, 28, 0.42);
+  animation: in 420ms ease both;
+}
+
+.onboard-card {
+  width: min(34rem, 100%);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 4px);
+  padding: 1.5rem 1.35rem 1.25rem;
+  box-shadow: 0 24px 60px rgba(20, 24, 28, 0.18);
+}
+
+.onboard-brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.onboard-step {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--quiet);
+}
+
+.onboard-card h2 {
+  margin: 0.45rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.45rem, 3vw, 1.8rem);
+  letter-spacing: -0.03em;
+}
+
+.onboard-body {
+  margin: 0.7rem 0 0;
+  color: var(--quiet);
+  line-height: 1.5;
+}
+
+.legend {
+  list-style: none;
+  margin: 1.1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.legend li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: start;
+}
+
+.legend-swatch {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 4px;
+  margin-top: 0.25rem;
+}
+
+.legend strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.legend p {
+  margin: 0.15rem 0 0;
+  color: var(--quiet);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.onboard-actions {
+  margin-top: 1.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.onboard-dots {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.onboard-dots span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(20, 24, 28, 0.16);
+}
+
+.onboard-dots span.on {
+  background: var(--accent);
+  width: 1rem;
+}
+
+.onboard-btns {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.onboard-btns button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  font-weight: 700;
+}
+
 button:disabled {
   opacity: 0.45;
   cursor: not-allowed;

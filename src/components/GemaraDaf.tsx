@@ -5,11 +5,60 @@ import {
   type CommentaryNote,
   type GemaraPage,
 } from '../lib/sefaria'
+import {
+  markWordKinds,
+  realWordIndexes,
+  splitHebrewWords,
+  type ActiveHighlights,
+} from '../lib/highlights'
 
 type Props = {
   page: GemaraPage
   lineIndex: number
   onSelectLine: (index: number) => void
+  highlights?: ActiveHighlights | null
+}
+
+function HighlightedLine({
+  text,
+  highlights,
+  isActive,
+}: {
+  text: string
+  highlights: ActiveHighlights | null | undefined
+  isActive: boolean
+}) {
+  if (!isActive || !highlights) {
+    return <span className="daf-line-text">{text}</span>
+  }
+
+  const parts = splitHebrewWords(text)
+  const kinds = markWordKinds(parts, highlights.marks)
+  const real = realWordIndexes(parts)
+  const readingPart =
+    highlights.readingIndex != null ? real[highlights.readingIndex] : null
+
+  return (
+    <span className="daf-line-text">
+      {parts.map((part, i) => {
+        if (!/\S/.test(part)) return <span key={i}>{part}</span>
+        const kind = kinds[i]
+        const reading = readingPart === i
+        const className = [
+          'daf-word',
+          kind ? `hl-${kind}` : '',
+          reading ? 'hl-reading' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+        return (
+          <span key={i} className={className || undefined}>
+            {part}
+          </span>
+        )
+      })}
+    </span>
+  )
 }
 
 function CommentaryColumn({
@@ -55,7 +104,12 @@ function CommentaryColumn({
   )
 }
 
-export function GemaraDaf({ page, lineIndex, onSelectLine }: Props) {
+export function GemaraDaf({
+  page,
+  lineIndex,
+  onSelectLine,
+  highlights,
+}: Props) {
   let sawGemara = false
 
   return (
@@ -104,7 +158,11 @@ export function GemaraDaf({ page, lineIndex, onSelectLine }: Props) {
                   onClick={() => onSelectLine(i)}
                 >
                   <span className="daf-line-num">{i + 1}</span>
-                  <span className="daf-line-text">{line}</span>
+                  <HighlightedLine
+                    text={line}
+                    highlights={highlights}
+                    isActive={i === lineIndex}
+                  />
                 </button>
               )
             })}

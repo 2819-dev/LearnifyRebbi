@@ -38,8 +38,11 @@ export default async (req) => {
       return Response.json(spoken, { headers: corsHeaders })
     }
 
-    const reply = await generateRebbeReply(body)
-    return Response.json({ reply }, { headers: corsHeaders })
+    const lesson = await generateRebbeReply(body)
+    return Response.json(
+      { reply: lesson.speech, highlights: lesson.highlights },
+      { headers: corsHeaders },
+    )
   } catch (err) {
     console.error(err)
     return Response.json(
