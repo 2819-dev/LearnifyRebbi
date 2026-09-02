@@ -1,20 +1,17 @@
 # Guide
 
-One student. One Rebbe. One open Gemara.
+Learn Gemara with a Rebbe beside you.
 
-Speak to the Rebbe. He speaks back. Hebrew words are welcome.
+Open the page. Follow the words. Ask when you need to.
 
-## Run locally
+## Local development
 
 ```bash
 cp .env.example .env
-# add GEMINI_API_KEY
 npm install
 npm run dev
 ```
 
-## Deploy
+## Live
 
 https://learnifyrebbi.netlify.app
-
-Free Gemini limits are real — replies are kept short, speech is cached, and retries back off when the API is busy.

@@ -14,16 +14,15 @@ export function Home({ onStart }: Props) {
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const preview = useMemo(() => normalizeDaf(daf), [daf])
-  const selected = REBBE_VOICES.find((v) => v.id === voiceId) || REBBE_VOICES[0]
 
   return (
-    <div className="shell">
+    <div className="shell home-shell">
       <main className="home">
         <p className="brand">{APP_NAME}</p>
-        <h1>Turn your sound on.</h1>
+        <h1>Learn Gemara with a Rebbe beside you.</h1>
         <p className="lede">
-          The Rebbe talks through your speakers. You answer with your voice. No
-          reading his words on screen.
+          Open the page. Follow the words. Ask when you need to. Begin with Bava
+          Metzia — Hashavas Aveidah.
         </p>
 
         <form
@@ -33,16 +32,11 @@ export function Home({ onStart }: Props) {
             setError(null)
             setStarting(true)
             try {
-              // Unlock speakers inside this click so later speech can play.
               await unlockAudio()
               onStart({ daf: preview, voiceId })
-            } catch (err) {
+            } catch {
               setStarting(false)
-              setError(
-                err instanceof Error
-                  ? err.message
-                  : 'Could not turn speakers on.',
-              )
+              setError('Something went wrong. Please try again.')
             }
           }}
         >
@@ -59,29 +53,30 @@ export function Home({ onStart }: Props) {
                 placeholder="21a"
                 inputMode="text"
                 autoComplete="off"
+                aria-label="Daf"
               />
             </label>
           </div>
 
           <label className="full">
-            <span>Rebbe voice</span>
+            <span>Voice</span>
             <select
               value={voiceId}
               onChange={(e) => setVoiceId(e.target.value)}
+              aria-label="Rebbe voice"
             >
               {REBBE_VOICES.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.label} — {v.blurb}
+                  {v.label}
                 </option>
               ))}
             </select>
-            <small>{selected.blurb}</small>
           </label>
 
           {error && <p className="bad">{error}</p>}
 
           <button type="submit" className="btn-main" disabled={starting}>
-            {starting ? 'Starting…' : 'Begin — hear the Rebbe'}
+            {starting ? 'Opening…' : 'Begin'}
           </button>
         </form>
       </main>

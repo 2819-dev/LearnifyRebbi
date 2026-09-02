@@ -40,15 +40,15 @@ function lineCommentText(
 function friendlyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err || '')
   if (/429|quota|rate|Resource exhausted|limit/i.test(msg)) {
-    return 'Free Gemini limit hit. Wait a minute, then tap Hear again.'
+    return 'Please wait a moment, then continue.'
   }
   if (/high demand|503|unavailable/i.test(msg)) {
-    return 'Busy right now. Wait a moment, then tap Hear again.'
+    return 'Please try again in a moment.'
   }
   if (/play|sound|Audio|NotAllowedError/i.test(msg)) {
-    return 'Tap Hear again so your browser allows sound.'
+    return 'Tap Replay to continue.'
   }
-  return msg || 'Something went wrong.'
+  return 'Something went wrong. Please try again.'
 }
 
 export function LearningRoom({
@@ -328,15 +328,15 @@ export function LearningRoom({
   }
 
   const status = speaking
-    ? 'Speaking through your speakers…'
+    ? 'Speaking'
     : busy
-      ? 'Getting the next words ready…'
+      ? 'Preparing'
       : needsGesture
-        ? 'Tap Hear so sound can play'
+        ? 'Ready when you are'
         : micMuted
-          ? 'Mic muted — unmute to answer'
+          ? 'Muted'
           : micListening
-            ? 'Listening… speak when you want'
+            ? 'Listening'
             : 'Ready'
 
   return (
@@ -366,8 +366,8 @@ export function LearningRoom({
         </label>
       </header>
 
-      {loadingPage && <p className="soft">Opening the Gemara…</p>}
-      {pageError && <p className="bad">{pageError}</p>}
+      {loadingPage && <p className="soft">Opening…</p>}
+      {pageError && <p className="bad">Could not open this page. Please try again.</p>}
 
       {page && (
         <div className="learn voice-only">
@@ -383,7 +383,7 @@ export function LearningRoom({
                 disabled={lineIndex <= 0 || busy}
                 onClick={() => goLine(lineIndex - 1)}
               >
-                Prev
+                Previous
               </button>
               <button
                 type="button"
@@ -396,13 +396,13 @@ export function LearningRoom({
           </section>
 
           <section className="talk-pane talk-voice">
-            <div className={`speaker-orb${speaking ? ' on' : ''}`} aria-hidden>
+            <div
+              className={`speaker-orb${speaking ? ' on' : ''}${busy && !speaking ? ' wait' : ''}`}
+              aria-hidden
+            >
               <span />
             </div>
             <p className="speaker-status">{status}</p>
-            {!micAvailable && (
-              <p className="soft">Use Chrome so the mic can hear you.</p>
-            )}
             {error && <p className="bad">{error}</p>}
 
             <div className="voice-dock">
@@ -412,7 +412,7 @@ export function LearningRoom({
                 onClick={() => void hearAgainFromTap()}
                 disabled={busy && !needsGesture}
               >
-                Hear
+                Replay
               </button>
               <button
                 type="button"
