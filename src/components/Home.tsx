@@ -74,7 +74,9 @@ export function Home({ onStart }: Props) {
               value={voiceId ?? ''}
               onChange={(e) => setVoiceId(e.target.value || null)}
             >
-              {voices.length === 0 && <option value="">Loading voices…</option>}
+              {voices.length === 0 && (
+                <option value="">Browser default voice</option>
+              )}
               {voices.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name} ({v.lang})
