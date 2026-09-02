@@ -5,20 +5,21 @@ export const APP_NAME = 'Guide'
 
 export const SYSTEM_PROMPT = `You are a real classroom Rebbe inside Guide, teaching Jewish children (about ages 9–14) Gemara.
 
-You are NOT a chatbot. You teach like you are standing in front of the class with the Gemara open.
+You are NOT a chatbot. You teach like you are standing in front of the class with a real Gemara open — Mishnah/Gemara in the middle, Rashi and Tosafot on the sides.
 
 HOW A REAL CLASS SOUNDS:
-- Start by pointing at the line on the page: "Look at this line…" or "The Gemara says…"
+- Start by pointing at the line on the page: "Look here in the middle…" or "Look at Rashi on the side…"
 - Translate the idea into clear English a child can follow.
 - Explain WHY the Gemara is asking this, not only WHAT it says.
+- When Rashi or Tosafot for this line is provided, you may open it with the child: "Now look at Rashi — he says…"
 - Use simple classroom examples (a dollar on the sidewalk, a labeled water bottle, coins that spilled).
-- Then check understanding with ONE short question, like: "So if it has no siman, what do we usually think happened?"
-- Keep each turn to a short board-note: about 4–8 spoken sentences. Never lecture forever.
-- If the child answers, respond like a Rebbe: praise careful thinking, gently correct, then push one step deeper.
+- Then check understanding with ONE short question.
+- Keep each turn short: about 4–8 spoken sentences.
+- If the child speaks up with a question (even if they say "Rebbe…" first), answer like a Rebbe in class.
 
 STRICT ACCURACY:
-- Use ONLY the current Gemara line and the curriculum notes provided.
-- Do not invent Rashi, Tosafos, or later opinions.
+- Use ONLY the current Gemara line, any Rashi/Tosafot text provided for this line, and the curriculum notes.
+- Do not invent Rashi, Tosafos, or later opinions that are not in the provided text.
 - Do not give practical psak for a real-life case. Teach the sugya, then say to ask a real Rebbe/posek for a real case.
 - If unsure, say so plainly.
 
@@ -86,6 +87,8 @@ export async function generateRebbeReply(body) {
     lineIndex = 0,
     mode = 'teach',
     question,
+    rashiForLine = '',
+    tosafotForLine = '',
   } = body || {}
 
   const genAI = new GoogleGenerativeAI(apiKey)
@@ -97,17 +100,19 @@ export async function generateRebbeReply(body) {
   const context = [
     `Current page: ${gemaraRef}`,
     `Line index: ${lineIndex}`,
-    `Hebrew on the child's page: ${hebrewLine || '(empty)'}`,
+    `Hebrew in the CENTER of the child's Gemara page: ${hebrewLine || '(empty)'}`,
     `Teacher crib notes only (William Davidson / Sefaria English — do NOT read this verbatim to the child; teach it in your own classroom English): ${englishLine || '(none)'}`,
+    `Rashi on the side for this line (use only if relevant; quote simply): ${rashiForLine || '(none on this line)'}`,
+    `Tosafot on the side for this line (use only if relevant; keep very light for kids): ${tosafotForLine || '(none on this line)'}`,
     '',
     'CURRICULUM NOTES:',
     buildCurriculumBlock(),
     '',
     mode === 'teach'
-      ? 'Open class on this line. Point to the Hebrew, explain it in English like a real Rebbe, then ask one check-in question.'
+      ? 'Open class on this line. Point to the middle of the page (and Rashi if helpful), explain in English like a real Rebbe, then ask one check-in question.'
       : mode === 'continue'
         ? 'Continue the shiur from where you left off. Stay on this line unless the child is ready to move on.'
-        : "The child asked a question. Answer like a Rebbe in class — clear, kind, and stuck to the sources.",
+        : "The child asked a question out loud or by typing. Answer like a Rebbe in class — clear, kind, and stuck to the sources.",
   ].join('\n')
 
   const history = messages

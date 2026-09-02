@@ -1,8 +1,18 @@
+export type CommentaryNote = {
+  id: string
+  anchorVerse: number
+  he: string
+  en: string
+  title: string
+}
+
 export type GemaraPage = {
   ref: string
   heRef: string
   hebrew: string[]
   english: string[]
+  rashi: CommentaryNote[]
+  tosafot: CommentaryNote[]
 }
 
 function stripHtml(html: string): string {
@@ -17,6 +27,14 @@ function stripHtml(html: string): string {
     .trim()
 }
 
+function asHebrewText(value: unknown): string {
+  if (typeof value === 'string') return stripHtml(value)
+  if (Array.isArray(value)) {
+    return value.map((v) => asHebrewText(v)).filter(Boolean).join(' ')
+  }
+  return ''
+}
+
 export function normalizeDaf(input: string): string {
   const cleaned = input.trim().toLowerCase().replace(/\s+/g, '')
   const match = cleaned.match(/^(\d+)([ab])?$/)
@@ -28,10 +46,41 @@ export function buildBavaMetziaRef(daf: string): string {
   return `Bava_Metzia.${normalizeDaf(daf)}`
 }
 
+function isRashi(item: Record<string, unknown>): boolean {
+  const collective = item.collectiveTitle as { en?: string } | undefined
+  const index = String(item.index_title || '')
+  return collective?.en === 'Rashi' || index.startsWith('Rashi on')
+}
+
+function isTosafot(item: Record<string, unknown>): boolean {
+  const collective = item.collectiveTitle as { en?: string } | undefined
+  const index = String(item.index_title || '')
+  if (collective?.en === 'Tosafot') return true
+  return index === 'Tosafot' || /^Tosafot on Bava Metzia\b/.test(index)
+}
+
+function mapNotes(
+  items: Record<string, unknown>[],
+  title: string,
+): CommentaryNote[] {
+  return items
+    .map((item, i) => {
+      const anchorVerse = Number(item.anchorVerse || 0)
+      return {
+        id: String(item.ref || `${title}-${anchorVerse}-${i}`),
+        anchorVerse: Number.isFinite(anchorVerse) ? anchorVerse : 0,
+        he: asHebrewText(item.he),
+        en: asHebrewText(item.text),
+        title,
+      }
+    })
+    .filter((n) => n.he || n.en)
+}
+
 export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
   const ref = buildBavaMetziaRef(daf)
   const res = await fetch(
-    `https://www.sefaria.org/api/texts/${ref}?context=0&commentary=0`,
+    `https://www.sefaria.org/api/texts/${ref}?context=0&commentary=1`,
   )
   if (!res.ok) {
     throw new Error(`Could not load ${ref} from Sefaria (${res.status})`)
@@ -46,12 +95,45 @@ export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
     hebrew.push(stripHtml(String(hebrewRaw[i] ?? '')))
     english.push(stripHtml(String(englishRaw[i] ?? '')))
   }
+
+  const commentary = Array.isArray(data.commentary) ? data.commentary : []
+  const rashi = mapNotes(
+    commentary.filter((x: Record<string, unknown>) => isRashi(x)),
+    'Rashi',
+  )
+  const tosafot = mapNotes(
+    commentary.filter((x: Record<string, unknown>) => isTosafot(x)),
+    'Tosafot',
+  )
+
   return {
     ref: data.ref || `Bava Metzia ${normalizeDaf(daf)}`,
     heRef: data.heRef || '',
     hebrew,
     english,
+    rashi,
+    tosafot,
   }
+}
+
+export function notesForLine(
+  notes: CommentaryNote[],
+  lineIndex: number,
+): CommentaryNote[] {
+  // Sefaria anchorVerse is 1-based segment index
+  return notes.filter((n) => n.anchorVerse === lineIndex + 1)
+}
+
+export function isMishnahLine(english: string, hebrew: string): boolean {
+  return (
+    /mishna/i.test(english) ||
+    /מתני['׳']/.test(hebrew) ||
+    hebrew.includes('מַתְנִי')
+  )
+}
+
+export function isGemaraMarker(english: string, hebrew: string): boolean {
+  return /gemara/i.test(english) || /גמ['׳']/.test(hebrew) || hebrew.includes('גְּמָ')
 }
 
 /** Best starting line for Hashavas Aveidah on 21a (Mishna Eilu Metziot). */

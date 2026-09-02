@@ -28,8 +28,9 @@ export function Home({ onStart }: Props) {
         <p className="wordmark">{APP_NAME}</p>
         <h1>Learn Gemara like you are sitting in class.</h1>
         <p className="lede">
-          Your Rebbe opens the page, explains the Hebrew in clear English, and
-          talks you through it — starting with Bava Metzia, Hashavas Aveidah.
+          Your Rebbe opens a real Gemara page, explains in clear English, and
+          talks with you — you can speak into the mic or type. We start with
+          Bava Metzia, Hashavas Aveidah.
         </p>
 
         <form

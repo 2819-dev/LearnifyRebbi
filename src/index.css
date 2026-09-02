@@ -14,6 +14,7 @@
   --chat-theirs: #e4e8df;
   --warning: #a67c2e;
   --destructive: #a84840;
+  --destructive-bg: rgba(168, 72, 64, 0.1);
   --logo-mark: #8fa898;
   --logo-trunk: #7a5c44;
   --radius: 0.625rem;
@@ -21,6 +22,11 @@
     system-ui, sans-serif;
   --font-logo: 'Open Sauce Sans', var(--font-sans);
   --font-hebrew: 'Frank Ruhl Libre', 'Times New Roman', serif;
+  --font-rashi: 'Noto Rashi Hebrew', 'Frank Ruhl Libre', serif;
+  --daf-paper: #f4ecd7;
+  --daf-ink: #1c1814;
+  --daf-rule: rgba(28, 24, 20, 0.18);
+  --daf-mishnah: #2a241c;
 }
 
 * {
@@ -299,6 +305,208 @@ button {
   animation: rise 550ms ease-out both;
 }
 
+.room-grid.daf-grid {
+  grid-template-columns: 1.35fr 0.9fr;
+  min-height: min(78vh, 860px);
+}
+
+.room-controls {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: stretch;
+  min-width: 11rem;
+}
+
+.btn-mic {
+  border: 1px solid var(--hairline);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.7rem 0.95rem;
+  font-weight: 650;
+  color: var(--brand);
+}
+
+.btn-mic.on {
+  background: var(--brand-soft);
+  border-color: rgba(61, 82, 72, 0.28);
+}
+
+.btn-mic.muted {
+  color: var(--destructive);
+  background: var(--destructive-bg, rgba(168, 72, 64, 0.08));
+}
+
+.mic-partial,
+.mic-note {
+  padding: 0 0.2rem 0.55rem;
+  font-size: 0.9rem;
+}
+
+.mic-partial {
+  color: var(--brand);
+  font-style: italic;
+}
+
+.daf-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.daf-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent 30%),
+    var(--daf-paper);
+  border: 1px solid var(--daf-rule);
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: 0 10px 28px rgba(26, 36, 38, 0.08);
+  color: var(--daf-ink);
+  overflow: hidden;
+}
+
+.daf-page-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.7rem 0.95rem;
+  border-bottom: 1px solid var(--daf-rule);
+  background: rgba(255, 252, 245, 0.55);
+}
+
+.daf-folio {
+  font-family: var(--font-hebrew);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.daf-folio-en {
+  color: rgba(28, 24, 20, 0.55);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.daf-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 0.85fr) minmax(12rem, 1.35fr) minmax(7.5rem, 0.85fr);
+  gap: 0;
+}
+
+.daf-col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-inline-start: 1px solid var(--daf-rule);
+}
+
+.daf-col.tosafot {
+  border-inline-start: none;
+}
+
+.daf-col-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  align-items: baseline;
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--daf-rule);
+  background: rgba(255, 252, 245, 0.4);
+  font-family: var(--font-hebrew);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.daf-col-label small {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(28, 24, 20, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.daf-col-scroll,
+.daf-center-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 0.45rem 0.5rem 0.8rem;
+}
+
+.daf-comment {
+  margin: 0 0 0.7rem;
+  font-family: var(--font-rashi);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: rgba(28, 24, 20, 0.78);
+}
+
+.daf-comment.focused {
+  color: var(--daf-ink);
+  background: rgba(61, 82, 72, 0.1);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.4rem;
+}
+
+.daf-empty {
+  margin: 0;
+  color: rgba(28, 24, 20, 0.45);
+  font-size: 0.8rem;
+  font-family: var(--font-sans);
+}
+
+.daf-line {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.45rem;
+  text-align: right;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.3rem;
+  color: inherit;
+}
+
+.daf-line:hover {
+  background: rgba(28, 24, 20, 0.04);
+}
+
+.daf-line.active {
+  background: rgba(61, 82, 72, 0.12);
+  border-color: rgba(61, 82, 72, 0.22);
+}
+
+.daf-line.mishnah .daf-line-text {
+  font-weight: 700;
+  color: var(--daf-mishnah);
+  font-size: clamp(1.05rem, 1.7vw, 1.28rem);
+}
+
+.daf-line-num {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(28, 24, 20, 0.4);
+  padding-top: 0.25rem;
+}
+
+.daf-line-text {
+  font-family: var(--font-hebrew);
+  font-size: clamp(1rem, 1.6vw, 1.22rem);
+  line-height: 1.65;
+}
+
 .gemara,
 .rebbe {
   display: flex;
@@ -326,40 +534,6 @@ button {
   padding: 0.8rem;
 }
 
-.gemara-line {
-  width: 100%;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.7rem;
-  text-align: right;
-  border: 1px solid transparent;
-  background: transparent;
-  border-radius: 0.55rem;
-  padding: 0.75rem 0.65rem;
-}
-
-.gemara-line:hover {
-  background: var(--fill);
-}
-
-.gemara-line.active {
-  background: var(--brand-soft);
-  border-color: rgba(61, 82, 72, 0.2);
-}
-
-.line-num {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--tertiary);
-  padding-top: 0.35rem;
-}
-
-.line-text {
-  font-family: var(--font-hebrew);
-  font-size: clamp(1.2rem, 2.2vw, 1.5rem);
-  line-height: 1.7;
-}
-
 .toolbar,
 .ask {
   display: flex;
@@ -367,6 +541,13 @@ button {
   gap: 0.5rem;
   padding: 0.8rem 1rem;
   border-top: 1px solid var(--hairline);
+}
+
+.daf-wrap .toolbar {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-top: none;
+  border-radius: 0 0 calc(var(--radius) + 2px) calc(var(--radius) + 2px);
 }
 
 .ask {
@@ -435,16 +616,28 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .room-grid {
+  .room-grid,
+  .room-grid.daf-grid {
     grid-template-columns: 1fr;
     min-height: unset;
   }
 
-  .gemara {
-    min-height: 46vh;
+  .daf-body {
+    grid-template-columns: 1fr;
+  }
+
+  .daf-col.rashi,
+  .daf-col.tosafot {
+    max-height: 28vh;
+    border-inline-start: none;
+    border-top: 1px solid var(--daf-rule);
+  }
+
+  .daf-wrap {
+    min-height: 58vh;
   }
 
   .rebbe {
-    min-height: 52vh;
+    min-height: 48vh;
   }
 }

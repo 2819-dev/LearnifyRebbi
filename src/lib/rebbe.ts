@@ -52,6 +52,8 @@ export async function askRebbe(payload: {
   mode: 'teach' | 'continue' | 'ask'
   question?: string
   voice: string
+  rashiForLine?: string
+  tosafotForLine?: string
 }): Promise<RebbeResponse> {
   const res = await fetch('/api/rebbe', {
     method: 'POST',
