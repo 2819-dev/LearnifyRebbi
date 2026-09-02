@@ -7,6 +7,7 @@ import {
   playBase64Audio,
   speakAgain,
   stopSpeaking,
+  unlockAudio,
   type ChatMessage,
   type SpeakPayload,
 } from '../lib/rebbe'
@@ -39,10 +40,13 @@ function lineCommentText(
 function friendlyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err || '')
   if (/429|quota|rate|Resource exhausted|limit/i.test(msg)) {
-    return 'The Rebbe needs a short rest (free Gemini limit). Wait about a minute, then tap Continue or speak again.'
+    return 'Free Gemini limit hit. Wait a minute, then tap Hear again.'
   }
   if (/high demand|503|unavailable/i.test(msg)) {
-    return 'The Rebbe is busy right now. Wait a moment and try again.'
+    return 'Busy right now. Wait a moment, then tap Hear again.'
+  }
+  if (/play|sound|Audio|NotAllowedError/i.test(msg)) {
+    return 'Tap Hear again so your browser allows sound.'
   }
   return msg || 'Something went wrong.'
 }
@@ -63,11 +67,8 @@ export function LearningRoom({
   const [speaking, setSpeaking] = useState(false)
   const [micMuted, setMicMuted] = useState(false)
   const [micListening, setMicListening] = useState(false)
-  const [micPartial, setMicPartial] = useState('')
-  const [showType, setShowType] = useState(false)
-  const [typed, setTyped] = useState('')
+  const [needsGesture, setNeedsGesture] = useState(false)
   const [micAvailable] = useState(() => micSupported())
-  const feedRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<ChatMessage[]>([])
   const pageRef = useRef<GemaraPage | null>(null)
   const lineRef = useRef(0)
@@ -76,6 +77,7 @@ export function LearningRoom({
   const busyRef = useRef(false)
   const micRef = useRef<StudentMic | null>(null)
   const micMutedRef = useRef(false)
+  const lastReplyRef = useRef('')
 
   useEffect(() => {
     messagesRef.current = messages
@@ -96,13 +98,6 @@ export function LearningRoom({
     micMutedRef.current = micMuted
   }, [micMuted])
 
-  useEffect(() => {
-    feedRef.current?.scrollTo({
-      top: feedRef.current.scrollHeight,
-      behavior: 'smooth',
-    })
-  }, [messages, busy, speaking])
-
   useEffect(
     () => () => {
       stopSpeaking()
@@ -111,7 +106,7 @@ export function LearningRoom({
     [],
   )
 
-  function playAudio(audio: SpeakPayload | null) {
+  async function playAudio(audio: SpeakPayload | null) {
     if (!audio) {
       setSpeaking(false)
       if (!micMutedRef.current) micRef.current?.resume()
@@ -119,19 +114,30 @@ export function LearningRoom({
     }
     setSpeaking(true)
     micRef.current?.pause()
-    playBase64Audio(audio, () => {
+    try {
+      await playBase64Audio(audio, () => {
+        setSpeaking(false)
+        setNeedsGesture(false)
+        if (!micMutedRef.current) micRef.current?.resume()
+      })
+      setNeedsGesture(false)
+    } catch (err) {
       setSpeaking(false)
+      setNeedsGesture(true)
+      setError(friendlyError(err))
       if (!micMutedRef.current) micRef.current?.resume()
-    })
+    }
   }
 
   async function speakText(text: string, requestId: number) {
+    lastReplyRef.current = text
     try {
       const audio = await speakAgain(text, voiceRef.current)
       if (requestId !== requestIdRef.current) return
-      playAudio(audio)
+      await playAudio(audio)
     } catch (err) {
       if (requestId !== requestIdRef.current) return
+      setNeedsGesture(true)
       setError(friendlyError(err))
       setSpeaking(false)
       if (!micMutedRef.current) micRef.current?.resume()
@@ -178,6 +184,7 @@ export function LearningRoom({
       if (id !== requestIdRef.current) return
       setError(friendlyError(err))
       setBusy(false)
+      setNeedsGesture(true)
     }
   }
 
@@ -219,6 +226,7 @@ export function LearningRoom({
       if (id !== requestIdRef.current) return
       setError(friendlyError(err))
       setBusy(false)
+      setNeedsGesture(true)
     }
   }
 
@@ -230,7 +238,6 @@ export function LearningRoom({
     if (text.length < 2) return
     if (busyRef.current) return
     if (looksHebrew(text)) micRef.current?.setLang('he-IL')
-    setMicPartial('')
     void runFollowUp('ask', text)
   }
 
@@ -239,7 +246,6 @@ export function LearningRoom({
     if (!micRef.current) micRef.current = new StudentMic()
     micRef.current.start({
       onFinal: handleSpokenQuestion,
-      onPartial: (t) => setMicPartial(t),
       onError: (message) => setError(message),
     })
     setMicListening(true)
@@ -248,7 +254,6 @@ export function LearningRoom({
   function stopMic() {
     micRef.current?.stop()
     setMicListening(false)
-    setMicPartial('')
   }
 
   useEffect(() => {
@@ -301,7 +306,38 @@ export function LearningRoom({
     else startMic()
   }
 
-  const lastRebbe = [...messages].reverse().find((m) => m.role === 'model')
+  async function hearAgainFromTap() {
+    setError(null)
+    try {
+      await unlockAudio()
+      setNeedsGesture(false)
+      const text = lastReplyRef.current
+      if (text) {
+        setBusy(true)
+        const audio = await speakAgain(text, voiceRef.current)
+        await playAudio(audio)
+        setBusy(false)
+        return
+      }
+      await teachCurrentLine()
+    } catch (err) {
+      setBusy(false)
+      setNeedsGesture(true)
+      setError(friendlyError(err))
+    }
+  }
+
+  const status = speaking
+    ? 'Speaking through your speakers…'
+    : busy
+      ? 'Getting the next words ready…'
+      : needsGesture
+        ? 'Tap Hear so sound can play'
+        : micMuted
+          ? 'Mic muted — unmute to answer'
+          : micListening
+            ? 'Listening… speak when you want'
+            : 'Ready'
 
   return (
     <div className="shell room">
@@ -334,7 +370,7 @@ export function LearningRoom({
       {pageError && <p className="bad">{pageError}</p>}
 
       {page && (
-        <div className="learn">
+        <div className="learn voice-only">
           <section className="daf-pane">
             <GemaraDaf
               page={page}
@@ -359,43 +395,25 @@ export function LearningRoom({
             </div>
           </section>
 
-          <section className="talk-pane">
-            <div className="talk-status">
-              <span>
-                {speaking
-                  ? 'Rebbe speaking'
-                  : busy
-                    ? 'Thinking'
-                    : micMuted
-                      ? 'Mic muted'
-                      : micListening
-                        ? 'Listening to you'
-                        : 'Ready'}
-              </span>
+          <section className="talk-pane talk-voice">
+            <div className={`speaker-orb${speaking ? ' on' : ''}`} aria-hidden>
+              <span />
             </div>
-
-            <div className="talk-feed" ref={feedRef}>
-              {lastRebbe ? (
-                <p className="rebbe-said">{lastRebbe.content}</p>
-              ) : (
-                <p className="soft">Your Rebbe will speak in a moment.</p>
-              )}
-              {messages
-                .filter((m) => m.role === 'user')
-                .slice(-2)
-                .map((m, i) => (
-                  <p key={i} className="you-said">
-                    You: {m.content}
-                  </p>
-                ))}
-              {!micMuted && micPartial && (
-                <p className="hearing">Hearing: {micPartial}</p>
-              )}
-            </div>
-
+            <p className="speaker-status">{status}</p>
+            {!micAvailable && (
+              <p className="soft">Use Chrome so the mic can hear you.</p>
+            )}
             {error && <p className="bad">{error}</p>}
 
             <div className="voice-dock">
+              <button
+                type="button"
+                className="btn-main hear-btn"
+                onClick={() => void hearAgainFromTap()}
+                disabled={busy && !needsGesture}
+              >
+                Hear
+              </button>
               <button
                 type="button"
                 className={`mic-btn${micMuted ? ' off' : ''}${micListening && !micMuted ? ' live' : ''}`}
@@ -421,66 +439,7 @@ export function LearningRoom({
               >
                 Stop
               </button>
-              <button
-                type="button"
-                disabled={busy || !lastRebbe}
-                onClick={async () => {
-                  if (!lastRebbe) return
-                  try {
-                    setBusy(true)
-                    setError(null)
-                    const audio = await speakAgain(
-                      lastRebbe.content,
-                      voiceRef.current,
-                    )
-                    playAudio(audio)
-                  } catch (err) {
-                    setError(friendlyError(err))
-                  } finally {
-                    setBusy(false)
-                  }
-                }}
-              >
-                Again
-              </button>
             </div>
-
-            <p className="hint">
-              {micAvailable
-                ? 'Speak to the Rebbe. Hebrew words are fine. Mute if you need quiet.'
-                : 'This browser cannot listen. Use Chrome for voice.'}
-            </p>
-
-            <button
-              type="button"
-              className="linkish tiny"
-              onClick={() => setShowType((v) => !v)}
-            >
-              {showType ? 'Hide typing' : 'Need to type?'}
-            </button>
-
-            {showType && (
-              <form
-                className="type-fallback"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  const q = typed.trim()
-                  if (!q) return
-                  setTyped('')
-                  void runFollowUp('ask', q)
-                }}
-              >
-                <input
-                  value={typed}
-                  onChange={(e) => setTyped(e.target.value)}
-                  placeholder="Only if you must type…"
-                  disabled={busy}
-                />
-                <button type="submit" disabled={busy}>
-                  Send
-                </button>
-              </form>
-            )}
           </section>
         </div>
       )}

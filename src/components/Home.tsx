@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import curriculum from '../data/hashavas-aveidah.json'
 import { APP_NAME, REBBE_VOICES } from '../lib/brand'
+import { unlockAudio } from '../lib/rebbe'
 import { normalizeDaf } from '../lib/sefaria'
 
 type Props = {
@@ -10,6 +11,8 @@ type Props = {
 export function Home({ onStart }: Props) {
   const [daf, setDaf] = useState(curriculum.defaultDaf)
   const [voiceId, setVoiceId] = useState<string>(REBBE_VOICES[0].id)
+  const [starting, setStarting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const preview = useMemo(() => normalizeDaf(daf), [daf])
   const selected = REBBE_VOICES.find((v) => v.id === voiceId) || REBBE_VOICES[0]
 
@@ -17,17 +20,30 @@ export function Home({ onStart }: Props) {
     <div className="shell">
       <main className="home">
         <p className="brand">{APP_NAME}</p>
-        <h1>One student. One Rebbe. One open Gemara.</h1>
+        <h1>Turn your sound on.</h1>
         <p className="lede">
-          He speaks to you. You speak back. Hebrew words welcome. We begin with
-          Bava Metzia — Hashavas Aveidah.
+          The Rebbe talks through your speakers. You answer with your voice. No
+          reading his words on screen.
         </p>
 
         <form
           className="setup"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault()
-            onStart({ daf: preview, voiceId })
+            setError(null)
+            setStarting(true)
+            try {
+              // Unlock speakers inside this click so later speech can play.
+              await unlockAudio()
+              onStart({ daf: preview, voiceId })
+            } catch (err) {
+              setStarting(false)
+              setError(
+                err instanceof Error
+                  ? err.message
+                  : 'Could not turn speakers on.',
+              )
+            }
           }}
         >
           <div className="setup-row">
@@ -62,8 +78,10 @@ export function Home({ onStart }: Props) {
             <small>{selected.blurb}</small>
           </label>
 
-          <button type="submit" className="btn-main">
-            Begin
+          {error && <p className="bad">{error}</p>}
+
+          <button type="submit" className="btn-main" disabled={starting}>
+            {starting ? 'Starting…' : 'Begin — hear the Rebbe'}
           </button>
         </form>
       </main>
