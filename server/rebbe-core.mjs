@@ -1,12 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const curriculum = JSON.parse(
-  readFileSync(join(__dirname, '../src/data/hashavas-aveidah.json'), 'utf8'),
-)
+import curriculum from '../src/data/hashavas-aveidah.json' with { type: 'json' }
 
 export const APP_NAME = 'Guide'
 
