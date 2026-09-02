@@ -48,6 +48,9 @@ export function Home({
 
   return (
     <div className="shell home-shell">
+      <div className="home-atmosphere" aria-hidden>
+        <span>גמ׳</span>
+      </div>
       <main className="home">
         <div className="home-top-links">
           {account ? (
@@ -89,10 +92,9 @@ export function Home({
         </div>
 
         <p className="brand">{APP_NAME}</p>
-        <h1>Learn Gemara with a Rebbe beside you.</h1>
         <p className="lede">
-          Open the page. Follow the words as they light up. Ask when you need
-          to.
+          A Rebbe beside the page. Open the amud, follow the words, ask when
+          you need to.
         </p>
 
         <form
