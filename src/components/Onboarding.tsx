@@ -5,11 +5,11 @@ import { HIGHLIGHT_LEGEND } from '../lib/curriculum'
 const STEPS = [
   {
     title: 'Your Gemara',
-    body: 'The page opens like a real amud — Gemara in the center, Rashi and Tosafot at the sides. Tap any line to learn it.',
+    body: 'The page opens like a real printed amud — cream paper, big Gemara in the center, Rashi and Tosafot on the sides. Tap any line to learn it.',
   },
   {
     title: 'Follow along',
-    body: 'As the Rebbe teaches, words light up so you can see what he is reading and what matters on the page.',
+    body: 'As the Rebbe teaches, words get marked like a used sefer — underlines and soft circles — so you can see what he is reading.',
   },
   {
     title: 'Highlight colors',

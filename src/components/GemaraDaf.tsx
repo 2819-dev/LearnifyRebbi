@@ -63,13 +63,11 @@ function HighlightedLine({
 
 function CommentaryColumn({
   labelHe,
-  labelEn,
   notes,
   activeLine,
   side,
 }: {
   labelHe: string
-  labelEn: string
   notes: CommentaryNote[]
   activeLine: number
   side: 'rashi' | 'tosafot'
@@ -78,16 +76,13 @@ function CommentaryColumn({
   const rest = notes.filter((n) => n.anchorVerse !== activeLine + 1)
 
   return (
-    <aside className={`daf-col ${side}`} aria-label={labelEn}>
-      <div className="daf-col-label">
-        <span lang="he" dir="rtl">
-          {labelHe}
-        </span>
-        <small>{labelEn}</small>
+    <aside className={`daf-col ${side}`} aria-label={labelHe}>
+      <div className="daf-col-label" dir="rtl" lang="he">
+        <span>{labelHe}</span>
       </div>
       <div className="daf-col-scroll" dir="rtl" lang="he">
         {focused.length === 0 && rest.length === 0 && (
-          <p className="daf-empty">No {labelEn} on this amud yet.</p>
+          <p className="daf-empty">—</p>
         )}
         {focused.map((n) => (
           <p key={n.id} className="daf-comment focused">
@@ -104,6 +99,17 @@ function CommentaryColumn({
   )
 }
 
+function splitRef(ref: string, heRef: string) {
+  // e.g. "Bava Metzia 21a" / Hebrew folio
+  const en = ref.replace(/^Bava[_\s]Metzia\s*/i, '').trim() || ref
+  return {
+    masechtaHe: 'בבא מציעא',
+    masechtaEn: 'Bava Metzia',
+    folioHe: heRef || en,
+    folioEn: en,
+  }
+}
+
 export function GemaraDaf({
   page,
   lineIndex,
@@ -111,34 +117,31 @@ export function GemaraDaf({
   highlights,
 }: Props) {
   let sawGemara = false
+  const head = splitRef(page.ref, page.heRef)
 
   return (
     <div className="daf-page" aria-label="Gemara page">
-      <div className="daf-page-head">
-        <span className="daf-folio" dir="rtl" lang="he">
-          {page.heRef || page.ref}
+      <header className="daf-page-head" dir="rtl">
+        <span className="daf-head-side" lang="he">
+          {head.masechtaHe}
         </span>
-        <span className="daf-folio-en">{page.ref}</span>
-      </div>
+        <span className="daf-head-center" lang="he">
+          {head.folioHe}
+        </span>
+        <span className="daf-head-side daf-head-en" lang="en" dir="ltr">
+          {head.folioEn}
+        </span>
+      </header>
 
       <div className="daf-body">
         <CommentaryColumn
           labelHe="תוספות"
-          labelEn="Tosafot"
           notes={page.tosafot}
           activeLine={lineIndex}
           side="tosafot"
         />
 
         <section className="daf-col center" aria-label="Gemara">
-          <div className="daf-col-label">
-            <span lang="he" dir="rtl">
-              גמרא
-            </span>
-            <small>
-              Line {lineIndex + 1} / {page.hebrew.length}
-            </small>
-          </div>
           <div className="daf-center-scroll" dir="rtl" lang="he">
             {page.hebrew.map((line, i) => {
               if (!line.trim()) return null
@@ -147,17 +150,16 @@ export function GemaraDaf({
               if (gemaraMark) sawGemara = true
               const kind = mishnah
                 ? 'mishnah'
-                : sawGemara || gemaraMark
-                  ? 'gemara'
+                : gemaraMark
+                  ? 'gemara-mark'
                   : 'gemara'
               return (
                 <button
                   key={i}
                   type="button"
-                  className={`daf-line ${kind}${i === lineIndex ? ' active' : ''}`}
+                  className={`daf-line ${kind}${i === lineIndex ? ' active' : ''}${sawGemara && !mishnah && !gemaraMark ? ' after-g' : ''}`}
                   onClick={() => onSelectLine(i)}
                 >
-                  <span className="daf-line-num">{i + 1}</span>
                   <HighlightedLine
                     text={line}
                     highlights={highlights}
@@ -171,7 +173,6 @@ export function GemaraDaf({
 
         <CommentaryColumn
           labelHe="רש״י"
-          labelEn="Rashi"
           notes={page.rashi}
           activeLine={lineIndex}
           side="rashi"
