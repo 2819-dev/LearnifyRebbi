@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { GemaraDaf } from './GemaraDaf'
-import { APP_NAME, REBBE_VOICES } from '../lib/brand'
+import { APP_NAME, REBBE_VOICES, loadTalkMode, saveTalkMode, type TalkMode } from '../lib/brand'
 import { HIGHLIGHT_TERM_HINTS } from '../lib/curriculum'
 import {
   chunkPhrase,
@@ -106,6 +106,8 @@ export function LearningRoom({
   const [phase, setPhase] = useState<DrillPhase>('idle')
   const [highlights, setHighlights] = useState<ActiveHighlights | null>(null)
   const [micAvailable] = useState(() => micSupported())
+  const [talkMode, setTalkMode] = useState<TalkMode>(() => loadTalkMode())
+  const [draft, setDraft] = useState('')
   const messagesRef = useRef<ChatMessage[]>([])
   const pageRef = useRef<GemaraPage | null>(null)
   const lineRef = useRef(0)
@@ -123,6 +125,7 @@ export function LearningRoom({
   const lastLessonRef = useRef<RebbeResponse | null>(null)
   const walkStopRef = useRef<(() => void) | null>(null)
   const marksRef = useRef<TextHighlight[]>([])
+  const talkModeRef = useRef<TalkMode>(talkMode)
 
   useEffect(() => {
     messagesRef.current = messages
@@ -145,6 +148,9 @@ export function LearningRoom({
   useEffect(() => {
     phaseRef.current = phase
   }, [phase])
+  useEffect(() => {
+    talkModeRef.current = talkMode
+  }, [talkMode])
 
   function clearWalk() {
     walkStopRef.current?.()
@@ -278,13 +284,38 @@ export function LearningRoom({
     if (!explain) return
     if (requestId !== requestIdRef.current) return
     pendingExplainRef.current = explain
-    await speakUtterance(explain)
+    await presentRebbe(explain)
+  }
+
+  async function presentRebbe(
+    text: string,
+    opts?: { hebrew?: boolean; audio?: SpeakPayload | null },
+  ) {
+    if (!text.trim()) return
+    if (talkModeRef.current === 'text') {
+      setMessages((prev) => [...prev, { role: 'model', content: text }])
+      return
+    }
+    await speakUtterance(text, opts)
   }
 
   async function runDrill(lesson: RebbeResponse, requestId: number) {
     lastLessonRef.current = lesson
     applyMarks(lesson.highlights, lesson.hebrew)
     stopMic()
+
+    if (talkModeRef.current === 'text') {
+      const parts = [
+        lesson.welcome,
+        lesson.hebrew,
+        lesson.english ? `That means: ${lesson.english}` : '',
+        lesson.explain || lesson.reply,
+      ].filter(Boolean)
+      if (parts.length) {
+        setMessages((prev) => [...prev, { role: 'model', content: parts.join('\n\n') }])
+      }
+      return
+    }
 
     if (lesson.welcome && !welcomedRef.current) {
       welcomedRef.current = true
@@ -342,14 +373,18 @@ export function LearningRoom({
         if (lesson.highlights?.length) applyMarks(lesson.highlights, hebrewChunk)
         const explain = lesson.explain || lesson.reply || localExplain
         pendingExplainRef.current = explain
-        const summary = [hebrewChunk, lesson.english, explain]
-          .filter(Boolean)
-          .join(' — ')
-        setMessages((prev) =>
-          prev.length
-            ? [...prev, { role: 'model', content: summary }]
-            : [{ role: 'model', content: summary }],
-        )
+        if (talkModeRef.current !== 'text') {
+          const summary = [hebrewChunk, lesson.english, explain]
+            .filter(Boolean)
+            .join(' — ')
+          setMessages((prev) =>
+            prev.length
+              ? [...prev, { role: 'model', content: summary }]
+              : [{ role: 'model', content: summary }],
+          )
+        } else if (explain && explain !== localExplain) {
+          setMessages((prev) => [...prev, { role: 'model', content: explain }])
+        }
         return explain
       })
       .catch(() => localExplain)
@@ -436,7 +471,7 @@ export function LearningRoom({
           { role: 'model', content: spoken },
         ])
         setBusy(false)
-        await speakUtterance(spoken)
+        await presentRebbe(spoken)
         return
       }
 
@@ -580,7 +615,13 @@ export function LearningRoom({
       const lesson = lastLessonRef.current
       if (lesson?.hebrew || lesson?.english) {
         setBusy(true)
-        await runDrill(lesson, requestIdRef.current)
+        const prev = talkModeRef.current
+        talkModeRef.current = 'voice'
+        try {
+          await runDrill(lesson, requestIdRef.current)
+        } finally {
+          talkModeRef.current = prev
+        }
         setBusy(false)
         return
       }
@@ -592,17 +633,41 @@ export function LearningRoom({
     }
   }
 
-  const status = speaking
-    ? 'Speaking'
-    : busy
-      ? 'Preparing'
-      : phase === 'listening-repeat'
-        ? 'Your turn — say it'
-        : needsGesture
-          ? 'Tap Replay to hear'
-          : micListening
-            ? 'Listening — ask aloud'
-            : 'Ready'
+  const status =
+    talkMode === 'text'
+      ? speaking
+        ? 'Speaking'
+        : busy
+          ? 'Preparing'
+          : 'Type to the Rebbe'
+      : speaking
+        ? 'Speaking'
+        : busy
+          ? 'Preparing'
+          : phase === 'listening-repeat'
+            ? 'Your turn — say it'
+            : needsGesture
+              ? 'Tap Replay to hear'
+              : micListening
+                ? 'Listening — ask aloud'
+                : 'Ready'
+
+  function changeTalkMode(next: TalkMode) {
+    setTalkMode(next)
+    saveTalkMode(next)
+    if (next === 'text') {
+      stopMic()
+      setPhase('idle')
+    }
+  }
+
+  function sendDraft(e: FormEvent) {
+    e.preventDefault()
+    const q = draft.trim()
+    if (!q || busy) return
+    setDraft('')
+    void runFollowUp('ask', q)
+  }
 
   return (
     <div className="shell room">
@@ -636,6 +701,22 @@ export function LearningRoom({
             ))}
           </select>
         </label>
+        <div className="mode-toggle" role="group" aria-label="How to learn">
+          <button
+            type="button"
+            className={talkMode === 'voice' ? 'on' : ''}
+            onClick={() => changeTalkMode('voice')}
+          >
+            Speak
+          </button>
+          <button
+            type="button"
+            className={talkMode === 'text' ? 'on' : ''}
+            onClick={() => changeTalkMode('text')}
+          >
+            Text
+          </button>
+        </div>
       </header>
 
       {loadingPage && <p className="soft">Opening…</p>}
@@ -644,7 +725,7 @@ export function LearningRoom({
       )}
 
       {page && (
-        <div className="learn voice-only">
+        <div className="learn">
           <section className="daf-pane">
             <GemaraDaf
               page={page}
@@ -670,15 +751,51 @@ export function LearningRoom({
             </div>
           </section>
 
-          <section className="talk-pane talk-voice">
-            <div
-              className={`speaker-orb${speaking ? ' on' : ''}${busy && !speaking ? ' wait' : ''}${phase === 'listening-repeat' ? ' wait' : ''}`}
-              aria-hidden
-            >
-              <span />
-            </div>
-            <p className="speaker-status">{status}</p>
-            {error && <p className="bad">{error}</p>}
+          <section
+            className={`talk-pane ${talkMode === 'text' ? 'talk-text' : 'talk-voice'}`}
+          >
+            {talkMode === 'text' ? (
+              <>
+                <p className="talk-status">{status}</p>
+                <div className="talk-feed" aria-live="polite">
+                  {messages.length === 0 && (
+                    <p className="soft">The Rebbe will write here. Ask anything about the line.</p>
+                  )}
+                  {messages.map((m, i) => (
+                    <p
+                      key={`${m.role}-${i}`}
+                      className={m.role === 'user' ? 'you-said' : 'rebbe-said'}
+                    >
+                      {m.content}
+                    </p>
+                  ))}
+                </div>
+                {error && <p className="bad">{error}</p>}
+                <form className="talk-compose" onSubmit={sendDraft}>
+                  <input
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="Ask the Rebbe…"
+                    disabled={busy}
+                    aria-label="Message to the Rebbe"
+                  />
+                  <button type="submit" className="btn-main" disabled={busy || !draft.trim()}>
+                    Send
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <div
+                  className={`speaker-orb${speaking ? ' on' : ''}${busy && !speaking ? ' wait' : ''}${phase === 'listening-repeat' ? ' wait' : ''}`}
+                  aria-hidden
+                >
+                  <span />
+                </div>
+                <p className="speaker-status">{status}</p>
+                {error && <p className="bad">{error}</p>}
+              </>
+            )}
 
             <div className="voice-dock">
               <button
@@ -698,16 +815,18 @@ export function LearningRoom({
                   I said it
                 </button>
               )}
-              <button
-                type="button"
-                className={`mic-btn${micListening ? ' live' : ''}`}
-                onClick={toggleMicAsk}
-                disabled={speaking || phase === 'listening-repeat'}
-              >
-                {micListening && phase !== 'listening-repeat'
-                  ? 'Stop mic'
-                  : 'Ask with mic'}
-              </button>
+              {talkMode === 'voice' && (
+                <button
+                  type="button"
+                  className={`mic-btn${micListening ? ' live' : ''}`}
+                  onClick={toggleMicAsk}
+                  disabled={speaking || phase === 'listening-repeat'}
+                >
+                  {micListening && phase !== 'listening-repeat'
+                    ? 'Stop mic'
+                    : 'Ask with mic'}
+                </button>
+              )}
               <button
                 type="button"
                 disabled={busy || phase === 'listening-repeat'}

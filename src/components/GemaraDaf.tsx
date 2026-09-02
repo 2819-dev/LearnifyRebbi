@@ -1,9 +1,12 @@
+import { useLayoutEffect, useRef, useState } from 'react'
+import { bavaMetziaPerek, formatAmudHe, splitDibbur } from '../lib/hebrew'
 import {
   isGemaraMarker,
   isMishnahLine,
   notesForLine,
   type CommentaryNote,
   type GemaraPage,
+  type GutterNote,
 } from '../lib/sefaria'
 import {
   markWordKinds,
@@ -23,20 +26,21 @@ function HighlightedLine({
   text,
   highlights,
   isActive,
+  dropFirst,
 }: {
   text: string
   highlights: ActiveHighlights | null | undefined
   isActive: boolean
+  dropFirst?: boolean
 }) {
-  if (!isActive || !highlights) {
-    return <>{text}</>
-  }
-
   const parts = splitHebrewWords(text)
-  const kinds = markWordKinds(parts, highlights.marks)
+  const kinds = isActive && highlights ? markWordKinds(parts, highlights.marks) : []
   const real = realWordIndexes(parts)
   const readingPart =
-    highlights.readingIndex != null ? real[highlights.readingIndex] : null
+    isActive && highlights?.readingIndex != null
+      ? real[highlights.readingIndex]
+      : null
+  const firstWord = dropFirst ? parts.findIndex((part) => /\S/.test(part)) : -1
 
   return (
     <>
@@ -44,8 +48,10 @@ function HighlightedLine({
         if (!/\S/.test(part)) return <span key={i}>{part}</span>
         const kind = kinds[i]
         const reading = readingPart === i
+        const incipit = firstWord === i
         const className = [
           'daf-word',
+          incipit ? 'vilna-incipit' : '',
           kind ? `hl-${kind}` : '',
           reading ? 'hl-reading' : '',
         ]
@@ -61,51 +67,47 @@ function HighlightedLine({
   )
 }
 
-function CommentaryColumn({
-  labelHe,
+function CommentaryStream({
   notes,
   activeLine,
-  side,
+  label,
 }: {
-  labelHe: string
   notes: CommentaryNote[]
   activeLine: number
-  side: 'rashi' | 'tosafot'
+  label: string
 }) {
-  const focused = notesForLine(notes, activeLine)
-  const rest = notes.filter((n) => n.anchorVerse !== activeLine + 1)
-
+  const focused = new Set(notesForLine(notes, activeLine).map((n) => n.id))
   return (
-    <aside className={`vilna-side ${side}`} aria-label={labelHe}>
-      <div className="vilna-side-label" dir="rtl" lang="he">
-        {labelHe}
-      </div>
-      <div className="vilna-side-body" dir="rtl" lang="he">
-        {focused.length === 0 && rest.length === 0 && (
-          <p className="daf-empty">־</p>
-        )}
-        {focused.map((n) => (
-          <p key={n.id} className="vilna-rashi focused">
-            {n.he}
-          </p>
-        ))}
-        {rest.map((n) => (
-          <p key={n.id} className="vilna-rashi">
-            {n.he}
-          </p>
-        ))}
-      </div>
-    </aside>
+    <div className="vilna-stream" dir="rtl" lang="he">
+      {notes.length === 0 && <span className="vilna-stream-empty">־</span>}
+      {notes.map((n) => {
+        const { lemma, body } = splitDibbur(n.he)
+        return (
+          <span
+            key={n.id}
+            className={`vilna-note${focused.has(n.id) ? ' focused' : ''}`}
+          >
+            {lemma ? <strong className="vilna-dibbur">{lemma} </strong> : null}
+            {body}
+            {' '}
+          </span>
+        )
+      })}
+      <span className="vilna-sr">{label}</span>
+    </div>
   )
 }
 
-function splitRef(ref: string, heRef: string) {
-  const en = ref.replace(/^Bava[_\s]Metzia\s*/i, '').trim() || ref
-  return {
-    masechtaHe: 'בבא מציעא',
-    folioHe: heRef || en,
-    folioEn: en,
-  }
+function Gutter({ notes, label }: { notes: GutterNote[]; label: string }) {
+  return (
+    <aside className="vilna-gutter" aria-label={label}>
+      {notes.map((n) => (
+        <span key={n.id} className="vilna-gutter-item">
+          {n.he}
+        </span>
+      ))}
+    </aside>
+  )
 }
 
 export function GemaraDaf({
@@ -114,38 +116,64 @@ export function GemaraDaf({
   onSelectLine,
   highlights,
 }: Props) {
-  const head = splitRef(page.ref, page.heRef)
+  const islandRef = useRef<HTMLElement>(null)
+  const [islandH, setIslandH] = useState(220)
+  const { dafHe, amudHe } = formatAmudHe(page.daf)
+  const perek = bavaMetziaPerek(page.daf)
+  const verso = /b$/i.test(page.daf)
+  const firstMishnah = page.hebrew.findIndex(
+    (line, i) => line.trim() && isMishnahLine(page.english[i] || '', line),
+  )
+
+  useLayoutEffect(() => {
+    const el = islandRef.current
+    if (!el) return
+    const measure = () => setIslandH(Math.max(el.offsetHeight, 80))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [page])
 
   return (
     <div className="vilna-page" aria-label="Gemara page">
-      <header className="vilna-head" dir="rtl">
-        <span className="vilna-head-masechta" lang="he">
-          {head.masechtaHe}
+      <header className="vilna-head" dir="rtl" lang="he">
+        <span className="vilna-head-daf">{dafHe}</span>
+        <span className="vilna-head-masechta">{page.heIndexTitle}</span>
+        <span className="vilna-head-perek">
+          פרק {perek.ordinalHe} · {perek.nameHe}
         </span>
-        <span className="vilna-head-folio" lang="he">
-          {head.folioHe}
-        </span>
-        <span className="vilna-head-en" lang="en" dir="ltr">
-          {head.folioEn}
-        </span>
+        <span className="vilna-head-amud">{amudHe}</span>
       </header>
 
-      <div className="vilna-rule" aria-hidden />
+      <div className="vilna-ornament" aria-hidden>
+        <span />
+        <i />
+        <span />
+      </div>
 
-      <div className="vilna-grid">
-        <CommentaryColumn
-          labelHe="תוספות"
-          notes={page.tosafot}
-          activeLine={lineIndex}
-          side="tosafot"
+      <div
+        className="vilna-sheet"
+        style={{ ['--island-h' as string]: `${islandH}px` }}
+      >
+        <Gutter
+          notes={verso ? page.einMishpat : page.masoret}
+          label={verso ? 'עין משפט' : 'מסורת הש״ס'}
         />
 
-        <section className="vilna-center" aria-label="Gemara">
-          <div className="vilna-center-body" dir="rtl" lang="he">
+        <div className={`vilna-amud${verso ? ' verso' : ''}`}>
+          <section
+            ref={islandRef}
+            className="vilna-island"
+            aria-label="גמרא"
+            dir="rtl"
+            lang="he"
+          >
             {page.hebrew.map((line, i) => {
               if (!line.trim()) return null
               const mishnah = isMishnahLine(page.english[i] || '', line)
               const gemaraMark = isGemaraMarker(page.english[i] || '', line)
+              const dropFirst = mishnah && i === firstMishnah
               const kind = mishnah
                 ? 'mishnah'
                 : gemaraMark
@@ -169,20 +197,41 @@ export function GemaraDaf({
                     text={line}
                     highlights={highlights}
                     isActive={i === lineIndex}
-                  />
-                  {' '}
+                    dropFirst={dropFirst}
+                  />{' '}
                 </span>
               )
             })}
-          </div>
-        </section>
+          </section>
 
-        <CommentaryColumn
-          labelHe="רש״י"
-          notes={page.rashi}
-          activeLine={lineIndex}
-          side="rashi"
+          <div className="vilna-rashi-col" aria-label="רש״י">
+            <div className="vilna-spacer" aria-hidden />
+            <CommentaryStream
+              notes={page.rashi}
+              activeLine={lineIndex}
+              label="רש״י"
+            />
+          </div>
+          <div className="vilna-tosafot-col" aria-label="תוספות">
+            <div className="vilna-spacer" aria-hidden />
+            <CommentaryStream
+              notes={page.tosafot}
+              activeLine={lineIndex}
+              label="תוספות"
+            />
+          </div>
+        </div>
+
+        <Gutter
+          notes={verso ? page.masoret : page.einMishpat}
+          label={verso ? 'מסורת הש״ס' : 'עין משפט'}
         />
+      </div>
+
+      <div className="vilna-ornament vilna-ornament-foot" aria-hidden>
+        <span />
+        <i />
+        <span />
       </div>
     </div>
   )

@@ -5,7 +5,6 @@ export type AccountRole = 'user' | 'tester' | 'admin'
 export type Account = {
   id: string
   username: string
-  phone: string
   role: AccountRole
   createdAt: string
 }
@@ -14,7 +13,6 @@ export type SupportTicket = {
   id: string
   accountId: string | null
   name: string
-  phone: string
   subject: string
   body: string
   status: 'open' | 'in_progress' | 'closed'

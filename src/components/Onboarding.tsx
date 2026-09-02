@@ -5,7 +5,7 @@ import { HIGHLIGHT_LEGEND } from '../lib/curriculum'
 const STEPS = [
   {
     title: 'Your Gemara',
-    body: 'The page opens like a real printed amud — cream paper, big Gemara in the center, Rashi and Tosafot on the sides. Tap any line to learn it.',
+    body: 'The amud opens like a printed Vilna page: large Gemara in the middle, Rashi and Tosafot wrapping around it. Tap any line to learn it.',
   },
   {
     title: 'Follow along',
@@ -18,7 +18,7 @@ const STEPS = [
   },
   {
     title: 'Your voice',
-    body: 'The Rebbe speaks through your speakers. Mic stays off until he asks you to repeat, or you tap Ask with mic. That keeps the phone out of call mode.',
+    body: 'Speak with the Rebbe, or switch to text and type. If you speak, the mic stays off until he asks you to repeat, or you tap Ask with mic.',
   },
 ] as const
 

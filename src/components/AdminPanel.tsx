@@ -92,8 +92,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
                 </div>
                 <p>{t.body}</p>
                 <p className="soft">
-                  {t.name} · {t.phone || 'no phone'} ·{' '}
-                  {new Date(t.createdAt).toLocaleString()}
+                  {t.name} · {new Date(t.createdAt).toLocaleString()}
                 </p>
                 <div className="ticket-actions">
                   {(['open', 'in_progress', 'closed'] as const).map((status) => (
@@ -129,7 +128,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
               <li key={u.id}>
                 <div>
                   <strong>{u.username}</strong>
-                  <p className="soft">{u.phone}</p>
+                  <p className="soft">{u.role}</p>
                 </div>
                 <select
                   value={u.role}

@@ -61,6 +61,10 @@ button {
   padding: 1.25rem 0 2.5rem;
 }
 
+.shell.room {
+  width: min(1280px, calc(100% - 1.2rem));
+}
+
 .home-shell {
   min-height: 100vh;
   display: flex;
@@ -201,8 +205,8 @@ button {
 
 .room-bar {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 1rem;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 0.85rem;
   align-items: start;
   margin-bottom: 1rem;
 }
@@ -237,11 +241,15 @@ button {
   color: var(--warm);
 }
 
+.room {
+  max-width: 1280px;
+}
+
 .learn {
   display: grid;
-  grid-template-columns: 1.75fr 0.7fr;
-  gap: 0.75rem;
-  min-height: min(82vh, 900px);
+  grid-template-columns: 1.85fr 0.7fr;
+  gap: 0.85rem;
+  min-height: min(84vh, 960px);
   animation: in 450ms ease both;
 }
 
@@ -252,10 +260,19 @@ button {
   flex-direction: column;
 }
 
+.daf-pane {
+  background:
+    linear-gradient(180deg, rgba(26, 45, 50, 0.08), transparent 18%),
+    #2a3c40;
+  padding: 0.55rem 0.55rem 0;
+  box-shadow:
+    0 18px 40px rgba(16, 22, 24, 0.22),
+    inset 0 1px 0 rgba(243, 230, 196, 0.12);
+}
+
 .talk-pane {
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 88%, #1a2d32);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
   overflow: hidden;
 }
 
@@ -412,139 +429,230 @@ button {
   padding: 0 0.9rem 0.9rem;
 }
 
-.pager {
-  background: #f0e2bd;
-  border: 1px solid #8a7350;
-  border-top: none;
-  border-radius: 0 0 2px 2px;
+.pager button {
+  border-radius: 2px;
+  background: #efe0b8;
 }
 
-
+.pager {
+  background: #efe0b8;
+  border: 1px solid #5c4528;
+  border-top: none;
+}
 
 .vilna-page {
   flex: 1;
-  min-height: 0;
+  min-height: 34rem;
   display: flex;
   flex-direction: column;
-  background: #f6ebcd;
+  color: #0c0906;
+  background-color: #f1e2b8;
   background-image:
-    linear-gradient(180deg, rgba(255, 252, 245, 0.45), transparent 28%),
-    radial-gradient(ellipse at 20% 0%, rgba(160, 120, 60, 0.07), transparent 50%),
-    radial-gradient(ellipse at 80% 100%, rgba(120, 90, 40, 0.08), transparent 45%);
-  color: #120e0a;
-  border: 1px solid #8a7350;
-  border-radius: 2px 2px 0 0;
-  overflow: hidden;
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(90, 62, 28, 0.018) 3px,
+      rgba(90, 62, 28, 0.018) 4px
+    ),
+    radial-gradient(ellipse at 18% 0%, rgba(255, 250, 235, 0.55), transparent 42%),
+    radial-gradient(ellipse at 82% 100%, rgba(120, 86, 40, 0.1), transparent 48%);
+  border: 1px solid #5c4528;
+  overflow: auto;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 250, 235, 0.55),
-    inset 0 0 60px rgba(90, 70, 40, 0.08);
+    inset 0 0 0 1px rgba(255, 248, 228, 0.55),
+    inset 0 0 70px rgba(70, 48, 18, 0.07);
 }
 
 .vilna-head {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: baseline;
-  gap: 0.5rem;
-  padding: 0.45rem 0.7rem 0.35rem;
+  grid-template-columns: auto 1fr 1fr auto;
+  align-items: end;
+  gap: 0.35rem 0.7rem;
+  padding: 0.4rem 0.55rem 0.2rem;
   font-family: var(--font-hebrew);
+  color: #0c0906;
+}
+
+.vilna-head-daf,
+.vilna-head-amud {
+  font-size: 1.35rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .vilna-head-masechta {
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 700;
+  text-align: start;
 }
 
-.vilna-head-folio {
-  font-size: 1.2rem;
-  font-weight: 700;
-  text-align: center;
-  letter-spacing: 0.04em;
-}
-
-.vilna-head-en {
-  text-align: left;
-  font-family: var(--font-ui);
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: rgba(18, 14, 10, 0.45);
-}
-
-.vilna-rule {
-  height: 1px;
-  margin: 0 0.55rem;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    #6b5538 12%,
-    #6b5538 88%,
-    transparent
-  );
-}
-
-.vilna-grid {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(5.8rem, 0.72fr) minmax(12rem, 1.7fr) minmax(5.8rem, 0.72fr);
-  gap: 0;
-}
-
-.vilna-side {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  border-inline-start: 1px solid rgba(90, 70, 40, 0.28);
-}
-
-.vilna-side.tosafot {
-  border-inline-start: none;
-  border-inline-end: 1px solid rgba(90, 70, 40, 0.28);
-}
-
-.vilna-side-label {
-  text-align: center;
-  font-family: var(--font-hebrew);
-  font-weight: 700;
+.vilna-head-perek {
   font-size: 0.78rem;
-  padding: 0.22rem 0.2rem;
-  border-bottom: 1px solid rgba(90, 70, 40, 0.2);
-  color: rgba(18, 14, 10, 0.7);
+  font-weight: 700;
+  text-align: end;
+  opacity: 0.92;
 }
 
-.vilna-side-body,
-.vilna-center-body {
+.vilna-ornament {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.12rem 0.7rem 0.28rem;
+}
+
+.vilna-ornament span {
+  height: 1px;
+  background: #2a1c10;
+  box-shadow: 0 2px 0 #2a1c10;
+}
+
+.vilna-ornament i {
+  width: 0.55rem;
+  height: 0.55rem;
+  display: block;
+  font-style: normal;
+  background: #2a1c10;
+  transform: rotate(45deg);
+}
+
+.vilna-ornament-foot {
+  padding: 0.35rem 0.7rem 0.45rem;
+}
+
+.vilna-sheet {
   flex: 1;
-  overflow: auto;
-  padding: 0.3rem 0.35rem 0.7rem;
+  display: grid;
+  grid-template-columns: 2.05rem minmax(0, 1fr) 2.05rem;
+  gap: 0.12rem;
+  padding: 0 0.2rem 0.4rem;
+  min-height: 0;
 }
 
-.vilna-center {
-  min-height: 0;
+.vilna-gutter {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 252, 245, 0.28);
+  gap: 0.35rem;
+  padding-top: 0.15rem;
+  font-family: var(--font-hebrew);
+  font-size: 0.42rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  color: #1a120c;
+  overflow: hidden;
 }
 
-.vilna-rashi {
-  margin: 0 0 0.48rem;
+.vilna-gutter-item {
+  writing-mode: horizontal-tb;
+  word-break: break-word;
+}
+
+.vilna-amud {
+  position: relative;
+  min-height: var(--island-h, 12rem);
+  overflow: hidden;
+}
+
+.vilna-amud::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+.vilna-island {
+  position: absolute;
+  top: 0;
+  left: 26%;
+  width: 48%;
+  z-index: 2;
+  background: #f1e2b8;
+  padding: 0.08rem 0.28rem 0.35rem;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.vilna-rashi-col,
+.vilna-tosafot-col {
+  width: 50%;
+  box-sizing: border-box;
+}
+
+.vilna-rashi-col {
+  float: left;
+  padding-right: 0.18rem;
+}
+
+.vilna-tosafot-col {
+  float: right;
+  padding-left: 0.18rem;
+}
+
+.vilna-spacer {
+  height: var(--island-h, 12rem);
+  width: 52%;
+}
+
+.vilna-rashi-col .vilna-spacer {
+  float: right;
+}
+
+.vilna-tosafot-col .vilna-spacer {
+  float: left;
+}
+
+.vilna-amud.verso .vilna-rashi-col {
+  float: right;
+  padding-right: 0;
+  padding-left: 0.18rem;
+}
+
+.vilna-amud.verso .vilna-rashi-col .vilna-spacer {
+  float: left;
+}
+
+.vilna-amud.verso .vilna-tosafot-col {
+  float: left;
+  padding-left: 0;
+  padding-right: 0.18rem;
+}
+
+.vilna-amud.verso .vilna-tosafot-col .vilna-spacer {
+  float: right;
+}
+
+.vilna-stream {
   font-family: var(--font-rashi);
-  font-size: 0.64rem;
-  line-height: 1.38;
-  color: #1a140f;
+  font-size: clamp(0.52rem, 1.15vw, 0.7rem);
+  line-height: 1.22;
+  color: #120e0a;
   text-align: justify;
+  overflow-wrap: anywhere;
   hyphens: auto;
 }
 
-.vilna-rashi.focused {
-  background: rgba(180, 110, 40, 0.12);
-  box-shadow: inset 2px 0 0 #9a4a2e;
-  padding: 0.15rem 0.25rem;
+.vilna-stream-empty {
+  opacity: 0.25;
 }
 
-.vilna-center-body {
-  padding: 0.55rem 0.6rem 0.95rem;
-  text-align: justify;
-  hyphens: auto;
+.vilna-note.focused {
+  background: rgba(196, 110, 28, 0.12);
+  box-shadow: inset 0 -1px 0 rgba(154, 74, 46, 0.55);
+}
+
+.vilna-dibbur {
+  font-family: var(--font-hebrew);
+  font-weight: 900;
+  font-size: 0.92em;
+}
+
+.vilna-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
 }
 
 .vilna-line {
@@ -553,28 +661,33 @@ button {
   background: transparent;
   color: inherit;
   font-family: var(--font-hebrew);
-  font-size: clamp(1.12rem, 1.9vw, 1.4rem);
-  line-height: 1.72;
+  font-size: clamp(1.02rem, 2.05vw, 1.38rem);
+  font-weight: 700;
+  line-height: 1.22;
   padding: 0;
   cursor: pointer;
 }
 
+.vilna-incipit {
+  font-size: 1.22em;
+  font-weight: 900;
+}
+
 .vilna-line:hover {
-  background: rgba(90, 70, 40, 0.06);
+  background: rgba(90, 70, 40, 0.07);
 }
 
 .vilna-line.active {
-  background: rgba(232, 150, 40, 0.18);
-  box-shadow: inset 0 -2px 0 rgba(200, 110, 20, 0.7);
+  background: rgba(232, 150, 40, 0.2);
+  box-shadow: inset 0 -2px 0 rgba(200, 110, 20, 0.75);
 }
 
 .vilna-line.mishnah {
-  font-weight: 700;
+  font-weight: 900;
 }
 
 .vilna-line.gemara-mark {
-  font-weight: 700;
-  color: #5c2a16;
+  font-weight: 900;
 }
 
 .daf-empty {
@@ -775,44 +888,111 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .daf-page-head {
-    grid-template-columns: 1fr auto;
-  }
-
-  .daf-head-en {
-    display: none;
-  }
-
   .learn {
     min-height: unset;
   }
 
-  .vilna-side {
-    max-height: 22vh;
-    border-inline-start: none;
-    border-inline-end: none;
-    border-top: 1px solid rgba(90, 70, 40, 0.22);
-  }
-
-  .vilna-grid {
-    grid-template-columns: 1fr;
-  }
-
   .vilna-head {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
   }
 
-  .vilna-head-en {
-    display: none;
+  .vilna-head-perek {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 0.7rem;
+  }
+
+  .vilna-sheet {
+    grid-template-columns: 1.45rem minmax(0, 1fr) 1.45rem;
+  }
+
+  .vilna-island {
+    left: 24%;
+    width: 52%;
+  }
+
+  .vilna-line {
+    font-size: clamp(0.92rem, 3.6vw, 1.12rem);
+    line-height: 1.18;
+  }
+
+  .vilna-stream {
+    font-size: 0.5rem;
+    line-height: 1.18;
   }
 
   .daf-pane {
-    min-height: 54vh;
+    min-height: 58vh;
+    padding: 0.35rem 0.3rem 0;
   }
 
   .talk-pane {
-    min-height: 42vh;
+    min-height: 38vh;
   }
+}
+
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  background: #fff;
+}
+
+.mode-toggle button {
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.mode-toggle button.on {
+  background: var(--accent);
+  color: #f3e6c4;
+}
+
+.talk-text {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.talk-feed {
+  flex: 1;
+  overflow: auto;
+  padding: 0.9rem 1rem;
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.talk-feed .rebbe-said {
+  font-size: 1.02rem;
+}
+
+.talk-compose {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  padding: 0.7rem 0.85rem 0.85rem;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 70%, white);
+}
+
+.talk-compose input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 0.7rem 0.8rem;
+  outline: none;
+}
+
+.talk-compose input:focus {
+  border-color: rgba(26, 45, 50, 0.45);
+  box-shadow: 0 0 0 3px rgba(26, 45, 50, 0.1);
 }
 
 .home-top-links {

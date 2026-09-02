@@ -6,13 +6,22 @@ export type CommentaryNote = {
   title: string
 }
 
+export type GutterNote = {
+  id: string
+  he: string
+}
+
 export type GemaraPage = {
   ref: string
   heRef: string
+  heIndexTitle: string
+  daf: string
   hebrew: string[]
   english: string[]
   rashi: CommentaryNote[]
   tosafot: CommentaryNote[]
+  einMishpat: GutterNote[]
+  masoret: GutterNote[]
 }
 
 function stripHtml(html: string): string {
@@ -53,10 +62,14 @@ function isRashi(item: Record<string, unknown>): boolean {
 }
 
 function isTosafot(item: Record<string, unknown>): boolean {
-  const collective = item.collectiveTitle as { en?: string } | undefined
-  const index = String(item.index_title || '')
-  if (collective?.en === 'Tosafot') return true
-  return index === 'Tosafot' || /^Tosafot on Bava Metzia\b/.test(index)
+  const t = commentaryTitle(item)
+  if (/Masoret HaTosefta/i.test(t)) return false
+  return /Tosafot/i.test(t)
+}
+
+function commentaryTitle(item: Record<string, unknown>): string {
+  const collective = item.collectiveTitle as { en?: string; he?: string } | undefined
+  return String(collective?.en || item.index_title || '')
 }
 
 function mapNotes(
@@ -75,6 +88,32 @@ function mapNotes(
       }
     })
     .filter((n) => n.he || n.en)
+}
+
+function mapGutter(items: Record<string, unknown>[]): GutterNote[] {
+  return items
+    .map((item, i) => {
+      const heRef = String(item.heRef || '').trim()
+      const ref = String(item.ref || '')
+      const shortRef = ref.includes(',') ? ref.slice(ref.indexOf(',') + 1).trim() : ref
+      const label = (heRef || shortRef).slice(0, 48)
+      return {
+        id: String(item.ref || `gutter-${i}`),
+        he: label,
+      }
+    })
+    .filter((n) => n.he)
+    .slice(0, 18)
+}
+
+function isEinMishpat(item: Record<string, unknown>): boolean {
+  const t = commentaryTitle(item)
+  return /Ein Mishpat|Shulchan Arukh|Mishneh Torah|Tur\b/i.test(t)
+}
+
+function isMasoret(item: Record<string, unknown>): boolean {
+  const t = commentaryTitle(item)
+  return /Masoret HaShas|Mesoret HaShas|Masoret HaTosefta/i.test(t)
 }
 
 export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
@@ -105,14 +144,25 @@ export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
     commentary.filter((x: Record<string, unknown>) => isTosafot(x)),
     'Tosafot',
   )
+  const einMishpat = mapGutter(
+    commentary.filter((x: Record<string, unknown>) => isEinMishpat(x)),
+  )
+  const masoret = mapGutter(
+    commentary.filter((x: Record<string, unknown>) => isMasoret(x)),
+  )
+  const normalized = normalizeDaf(daf)
 
   return {
-    ref: data.ref || `Bava Metzia ${normalizeDaf(daf)}`,
+    ref: data.ref || `Bava Metzia ${normalized}`,
     heRef: data.heRef || '',
+    heIndexTitle: String(data.heIndexTitle || 'בבא מציעא'),
+    daf: normalized,
     hebrew,
     english,
     rashi,
     tosafot,
+    einMishpat,
+    masoret,
   }
 }
 

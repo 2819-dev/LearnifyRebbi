@@ -224,7 +224,7 @@ export default function App() {
       {showSupport && (
         <SupportForm
           defaultName={account?.username}
-          defaultPhone={account?.phone}
+          defaultPhone=""
           onClose={() => setShowSupport(false)}
         />
       )}

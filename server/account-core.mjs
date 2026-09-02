@@ -43,10 +43,44 @@ function publicAccount(account) {
   return {
     id: account.id,
     username: account.username,
-    phone: account.phone,
     role: account.role,
     createdAt: account.createdAt,
   }
+}
+
+function publicTicket(ticket) {
+  if (!ticket) return null
+  return {
+    id: ticket.id,
+    accountId: ticket.accountId,
+    name: ticket.name,
+    subject: ticket.subject,
+    body: ticket.body,
+    status: ticket.status,
+    createdAt: ticket.createdAt,
+  }
+}
+
+function phoneDigits(phone) {
+  return String(phone || '')
+    .replace(/\D/g, '')
+    .replace(/^1(?=\d{10}$)/, '')
+    .slice(-10)
+}
+
+function phoneDigest(phone) {
+  const digits = phoneDigits(phone)
+  if (digits.length < 10) return null
+  return createHash('sha256').update(`guide.owner.v1:${digits}`).digest()
+}
+
+function isOwnerPhone(phone) {
+  const configured = process.env.GUIDE_OWNER_PHONE || ''
+  if (!configured.trim()) return false
+  const a = phoneDigest(phone)
+  const b = phoneDigest(configured)
+  if (!a || !b || a.length !== b.length) return false
+  return timingSafeEqual(a, b)
 }
 
 async function readDb() {
@@ -112,9 +146,23 @@ async function ensureBootstrapAdmin(db) {
   return db
 }
 
+async function promoteOwnerAccounts(db) {
+  if (!process.env.GUIDE_OWNER_PHONE) return db
+  let changed = false
+  for (const account of db.accounts) {
+    if (isOwnerPhone(account.phone) && account.role !== 'admin') {
+      account.role = 'admin'
+      changed = true
+    }
+  }
+  if (changed) await writeDb(db)
+  return db
+}
+
 export async function getDb() {
   const db = await readDb()
-  return ensureBootstrapAdmin(db)
+  await ensureBootstrapAdmin(db)
+  return promoteOwnerAccounts(db)
 }
 
 export async function registerAccount({ username, phone, password }) {
@@ -136,7 +184,7 @@ export async function registerAccount({ username, phone, password }) {
     username: user,
     phone: tel,
     passwordHash: hashPassword(pass),
-    role: 'user',
+    role: isOwnerPhone(tel) ? 'admin' : 'user',
     createdAt: new Date().toISOString(),
   }
   db.accounts.push(account)
@@ -163,6 +211,9 @@ export async function loginAccount({ username, phone, password }) {
   )
   if (!account || !verifyPassword(pass, account.passwordHash)) {
     throw Object.assign(new Error('Wrong username/phone or password'), { status: 401 })
+  }
+  if (isOwnerPhone(account.phone) && account.role !== 'admin') {
+    account.role = 'admin'
   }
   const token = sessionToken()
   db.sessions = db.sessions.filter(
@@ -240,13 +291,13 @@ export async function createTicket({ token, name, phone, subject, body }) {
   if (!ticket.body) throw Object.assign(new Error('Write a short message'), { status: 400 })
   db.tickets.unshift(ticket)
   await writeDb(db)
-  return ticket
+  return publicTicket(ticket)
 }
 
 export async function listTickets(token) {
   await requireRole(token, ['admin'])
   const db = await getDb()
-  return db.tickets
+  return db.tickets.map(publicTicket)
 }
 
 export async function updateTicket(token, ticketId, status) {
@@ -259,7 +310,7 @@ export async function updateTicket(token, ticketId, status) {
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { status: 404 })
   ticket.status = status
   await writeDb(db)
-  return ticket
+  return publicTicket(ticket)
 }
 
 export async function listTraining(token) {
@@ -300,4 +351,4 @@ export async function trainingHintsForPrompt() {
     .join('\n')
 }
 
-export { publicAccount, normalizePhone }
+export { publicAccount, publicTicket, normalizePhone }
