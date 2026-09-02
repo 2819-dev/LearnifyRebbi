@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { GemaraDaf } from './GemaraDaf'
-import { APP_NAME, REBBE_VOICES, loadTalkMode, saveTalkMode, type TalkMode } from '../lib/brand'
+import { TalkModePicker } from './TalkModePicker'
+import { APP_NAME, REBBE_VOICES, saveTalkMode, type TalkMode } from '../lib/brand'
 import { HIGHLIGHT_TERM_HINTS } from '../lib/curriculum'
 import {
   chunkPhrase,
@@ -33,8 +34,10 @@ import {
 type Props = {
   daf: string
   voiceId: string
+  talkMode: TalkMode
   onExit: () => void
   onVoiceIdChange: (id: string) => void
+  onTalkModeChange: (mode: TalkMode) => void
   onShowTour?: () => void
 }
 
@@ -88,8 +91,10 @@ function roughlyMatches(heard: string, target: string): boolean {
 export function LearningRoom({
   daf,
   voiceId,
+  talkMode,
   onExit,
   onVoiceIdChange,
+  onTalkModeChange,
   onShowTour,
 }: Props) {
   const [page, setPage] = useState<GemaraPage | null>(null)
@@ -106,7 +111,6 @@ export function LearningRoom({
   const [phase, setPhase] = useState<DrillPhase>('idle')
   const [highlights, setHighlights] = useState<ActiveHighlights | null>(null)
   const [micAvailable] = useState(() => micSupported())
-  const [talkMode, setTalkMode] = useState<TalkMode>(() => loadTalkMode())
   const [draft, setDraft] = useState('')
   const messagesRef = useRef<ChatMessage[]>([])
   const pageRef = useRef<GemaraPage | null>(null)
@@ -653,11 +657,25 @@ export function LearningRoom({
                 : 'Ready'
 
   function changeTalkMode(next: TalkMode) {
-    setTalkMode(next)
     saveTalkMode(next)
+    onTalkModeChange(next)
     if (next === 'text') {
       stopMic()
+      stopSpeaking()
+      setSpeaking(false)
       setPhase('idle')
+      const lesson = lastLessonRef.current
+      if (lesson && messagesRef.current.length === 0) {
+        const parts = [
+          lesson.welcome,
+          lesson.hebrew,
+          lesson.english ? `That means: ${lesson.english}` : '',
+          lesson.explain || lesson.reply,
+        ].filter(Boolean)
+        if (parts.length) {
+          setMessages([{ role: 'model', content: parts.join('\n\n') }])
+        }
+      }
     }
   }
 
@@ -688,35 +706,21 @@ export function LearningRoom({
             {page?.heRef}
           </p>
         </div>
-        <label className="voice-pick">
-          <span>Voice</span>
-          <select
-            value={voiceId}
-            onChange={(e) => onVoiceIdChange(e.target.value)}
-          >
-            {REBBE_VOICES.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="mode-toggle" role="group" aria-label="How to learn">
-          <button
-            type="button"
-            className={talkMode === 'voice' ? 'on' : ''}
-            onClick={() => changeTalkMode('voice')}
-          >
-            Speak
-          </button>
-          <button
-            type="button"
-            className={talkMode === 'text' ? 'on' : ''}
-            onClick={() => changeTalkMode('text')}
-          >
-            Text
-          </button>
-        </div>
+        {talkMode === 'voice' && (
+          <label className="voice-pick">
+            <span>Voice</span>
+            <select
+              value={voiceId}
+              onChange={(e) => onVoiceIdChange(e.target.value)}
+            >
+              {REBBE_VOICES.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </header>
 
       {loadingPage && <p className="soft">Opening…</p>}
@@ -754,6 +758,11 @@ export function LearningRoom({
           <section
             className={`talk-pane ${talkMode === 'text' ? 'talk-text' : 'talk-voice'}`}
           >
+            <TalkModePicker
+              value={talkMode}
+              onChange={changeTalkMode}
+              size="sm"
+            />
             {talkMode === 'text' ? (
               <>
                 <p className="talk-status">{status}</p>

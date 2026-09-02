@@ -17,8 +17,8 @@ const STEPS = [
     showLegend: true,
   },
   {
-    title: 'Your voice',
-    body: 'Speak with the Rebbe, or switch to text and type. If you speak, the mic stays off until he asks you to repeat, or you tap Ask with mic.',
+    title: 'Speak or type',
+    body: 'Choose Speak if you want the Rebbe to talk out loud. Choose Text if you would rather type, like a chat.',
   },
 ] as const
 

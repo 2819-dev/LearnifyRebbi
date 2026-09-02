@@ -10,6 +10,7 @@ import {
   hasCompletedOnboarding,
   markOnboardingDone,
   REBBE_VOICES,
+  type TalkMode,
 } from './lib/brand'
 import {
   fetchMe,
@@ -23,6 +24,7 @@ type Session = {
   daf: string
   voiceId: string
   tractateId: string
+  talkMode: TalkMode
 } | null
 
 type View = 'home' | 'learn' | 'auth' | 'admin' | 'testing'
@@ -195,8 +197,12 @@ export default function App() {
       <LearningRoom
         daf={session.daf}
         voiceId={session.voiceId || REBBE_VOICES[0].id}
+        talkMode={session.talkMode}
         onVoiceIdChange={(voiceId) =>
           setSession((prev) => (prev ? { ...prev, voiceId } : prev))
+        }
+        onTalkModeChange={(talkMode) =>
+          setSession((prev) => (prev ? { ...prev, talkMode } : prev))
         }
         onExit={() => setSession(null)}
         onShowTour={() => setShowOnboarding(true)}
@@ -208,8 +214,8 @@ export default function App() {
     <>
       <Home
         account={account}
-        onStart={({ daf, voiceId, tractateId }) => {
-          setSession({ daf, voiceId, tractateId })
+        onStart={({ daf, voiceId, tractateId, talkMode }) => {
+          setSession({ daf, voiceId, tractateId, talkMode })
         }}
         onShowTour={() => setShowOnboarding(true)}
         onSignIn={() => go('auth')}

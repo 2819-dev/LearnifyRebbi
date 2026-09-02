@@ -1,13 +1,19 @@
 import { useMemo, useState } from 'react'
 import curriculum from '../data/hashavas-aveidah.json'
-import { APP_NAME, REBBE_VOICES } from '../lib/brand'
+import { APP_NAME, REBBE_VOICES, loadTalkMode, saveTalkMode, type TalkMode } from '../lib/brand'
 import { TRACTATES } from '../lib/curriculum'
 import type { Account } from '../lib/account'
 import { unlockAudio } from '../lib/rebbe'
 import { normalizeDaf } from '../lib/sefaria'
+import { TalkModePicker } from './TalkModePicker'
 
 type Props = {
-  onStart: (opts: { daf: string; voiceId: string; tractateId: string }) => void
+  onStart: (opts: {
+    daf: string
+    voiceId: string
+    tractateId: string
+    talkMode: TalkMode
+  }) => void
   onShowTour?: () => void
   account?: Account | null
   onSignIn?: () => void
@@ -30,6 +36,7 @@ export function Home({
   const [tractateId, setTractateId] = useState(TRACTATES[0].id)
   const [daf, setDaf] = useState(curriculum.defaultDaf)
   const [voiceId, setVoiceId] = useState<string>(REBBE_VOICES[0].id)
+  const [talkMode, setTalkMode] = useState<TalkMode>(() => loadTalkMode())
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -100,7 +107,13 @@ export function Home({
             setStarting(true)
             try {
               await unlockAudio()
-              onStart({ daf: preview, voiceId, tractateId: tractate.id })
+              saveTalkMode(talkMode)
+              onStart({
+                daf: preview,
+                voiceId,
+                tractateId: tractate.id,
+                talkMode,
+              })
             } catch {
               setStarting(false)
               setError('Something went wrong. Please try again.')
@@ -145,20 +158,24 @@ export function Home({
             </label>
           </div>
 
-          <label className="full">
-            <span>Voice</span>
-            <select
-              value={voiceId}
-              onChange={(e) => setVoiceId(e.target.value)}
-              aria-label="Rebbe voice"
-            >
-              {REBBE_VOICES.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <TalkModePicker value={talkMode} onChange={setTalkMode} />
+
+          {talkMode === 'voice' && (
+            <label className="full">
+              <span>Voice</span>
+              <select
+                value={voiceId}
+                onChange={(e) => setVoiceId(e.target.value)}
+                aria-label="Rebbe voice"
+              >
+                {REBBE_VOICES.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           {error && <p className="bad">{error}</p>}
 
