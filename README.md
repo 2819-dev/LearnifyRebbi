@@ -38,6 +38,23 @@ npm run dev
 - Web: http://localhost:5173  
 - API: http://localhost:8787  
 
+## Deploy (Netlify)
+
+Site: `https://LearnifyRebbi.netlify.app`
+
+```bash
+# set secrets (once)
+netlify env:set GEMINI_API_KEY "your-key" --context production
+netlify env:set GEMINI_API_KEY "your-key" --context deploy-preview
+netlify env:set GEMINI_API_KEY "your-key" --context branch-deploy
+
+# deploy
+netlify deploy --prod --dir=dist
+# or let Netlify build from git with netlify.toml
+```
+
+`netlify.toml` publishes `dist` and serves `/api/rebbe` + `/api/health` as Functions.
+
 ## Important honesty note
 
 Lomed is a study helper, not a posek and not a replacement for a real Rebbe. The model is instructed to stay close to the provided Gemara line and curriculum notes, and to say when it is unsure.
