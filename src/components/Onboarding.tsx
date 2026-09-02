@@ -18,7 +18,7 @@ const STEPS = [
   },
   {
     title: 'Your voice',
-    body: 'The Rebbe says a short Hebrew phrase, then the English. You repeat it. Then he explains. Mute when you need quiet — use Continue for the next piece, or Replay if sound did not start.',
+    body: 'The Rebbe speaks through your speakers. Mic stays off until he asks you to repeat, or you tap Ask with mic. That keeps the phone out of call mode.',
   },
 ] as const
 

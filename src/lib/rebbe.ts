@@ -83,14 +83,11 @@ export async function unlockAudio(): Promise<void> {
   source.connect(ctx.destination)
   source.start(0)
 
-  // Also unlock browser speech — needed when Gemini TTS falls back.
+  await reclaimPlaybackRoute()
+
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     try {
       window.speechSynthesis.cancel()
-      const warm = new SpeechSynthesisUtterance(' ')
-      warm.volume = 0
-      warm.rate = 2
-      window.speechSynthesis.speak(warm)
       window.speechSynthesis.getVoices()
     } catch {
       // ignore
@@ -98,6 +95,33 @@ export async function unlockAudio(): Promise<void> {
   }
 
   unlocked = true
+}
+
+/**
+ * Nudge iOS out of phone-call / PlayAndRecord mode into normal media playback
+ * so speech comes through the speakers instead of the earpiece.
+ */
+export async function reclaimPlaybackRoute(): Promise<void> {
+  // Tiny valid WAV (silence)
+  const silent =
+    'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
+  try {
+    const el = new Audio(silent)
+    el.setAttribute('playsinline', 'true')
+    el.volume = 0.01
+    await el.play()
+    el.pause()
+    el.src = ''
+  } catch {
+    // ignore
+  }
+  try {
+    const ctx = getAudioContext()
+    if (ctx.state === 'suspended') await ctx.resume()
+  } catch {
+    // ignore
+  }
+  await new Promise((r) => setTimeout(r, 120))
 }
 
 export function isAudioUnlocked(): boolean {
@@ -185,40 +209,93 @@ export async function playBrowserSpeech(
     throw new Error('No speaker voice available in this browser.')
   }
   stopSpeaking()
-  onDuration?.(estimateSpeechMs(text))
+  await reclaimPlaybackRoute()
+  const expected = estimateSpeechMs(text)
+  onDuration?.(expected)
 
-  await new Promise<void>((resolve) => {
+  await new Promise<void>((resolve, reject) => {
     let started = false
+    let settled = false
+    const finish = (ok: boolean) => {
+      if (settled) return
+      settled = true
+      if (ok) {
+        onend?.()
+        resolve()
+      } else {
+        reject(new Error('Could not play speech through speakers.'))
+      }
+    }
+
     const speakNow = () => {
       if (started) return
       started = true
+      const startedAt = Date.now()
       const utter = new SpeechSynthesisUtterance(text)
       const voice = pickBrowserVoice(lang)
       if (voice) utter.voice = voice
       if (lang) utter.lang = lang
       const isHe = Boolean(lang?.startsWith('he'))
       utter.rate = rate ?? (isHe ? 0.78 : 0.9)
-      // Slightly lower pitch reads as a calm adult man on most engines.
       utter.pitch = pitch ?? (isHe ? 0.9 : 0.85)
       utter.volume = 1
+      utter.onstart = () => {
+        // ok
+      }
       utter.onend = () => {
-        resolve()
-        onend?.()
+        // iOS sometimes fires onend instantly without audible speech.
+        const elapsed = Date.now() - startedAt
+        finish(elapsed > 350 || text.trim().length < 8)
       }
-      utter.onerror = () => {
-        resolve()
-        onend?.()
+      utter.onerror = () => finish(false)
+      try {
+        window.speechSynthesis.cancel()
+        window.speechSynthesis.speak(utter)
+        // Safari can stall speechSynthesis until resumed.
+        window.setTimeout(() => {
+          try {
+            window.speechSynthesis.pause()
+            window.speechSynthesis.resume()
+          } catch {
+            // ignore
+          }
+        }, 40)
+      } catch {
+        finish(false)
       }
-      window.speechSynthesis.speak(utter)
     }
     if (window.speechSynthesis.getVoices().length === 0) {
       window.speechSynthesis.onvoiceschanged = () => speakNow()
       window.speechSynthesis.getVoices()
-      setTimeout(speakNow, 180)
+      setTimeout(speakNow, 200)
     } else {
       speakNow()
     }
   })
+}
+
+/** Speak text: try browser first, then server WAV through speakers. */
+export async function speakTextAudibly(
+  text: string,
+  voice: string,
+  handlers?: BrowserSpeechOptions,
+): Promise<void> {
+  const trimmed = text.trim()
+  if (!trimmed) return
+  try {
+    await playBrowserSpeech(trimmed, handlers)
+    return
+  } catch {
+    // fall through
+  }
+  const audio = await speakAgain(trimmed, voice)
+  if (audio.source === 'browser' || !audio.audioBase64) {
+    // Last attempt at browser again after reclaim
+    await reclaimPlaybackRoute()
+    await playBrowserSpeech(trimmed, handlers)
+    return
+  }
+  await playBase64Audio(audio, handlers)
 }
 
 export async function playBase64Audio(
@@ -235,6 +312,7 @@ export async function playBase64Audio(
   }
 
   stopSpeaking()
+  await reclaimPlaybackRoute()
 
   const ctx = getAudioContext()
   if (ctx.state === 'suspended') {
@@ -248,18 +326,21 @@ export async function playBase64Audio(
     const arrayBuffer = base64ToArrayBuffer(audio.audioBase64)
     const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0))
     onDuration?.(Math.max(800, Math.round(decoded.duration * 1000)))
-    const source = ctx.createBufferSource()
-    const gain = ctx.createGain()
-    gain.gain.value = 1
-    source.buffer = decoded
-    source.connect(gain)
-    gain.connect(ctx.destination)
-    currentSource = source
-    source.onended = () => {
-      if (currentSource === source) currentSource = null
-      onend?.()
-    }
-    source.start(0)
+    await new Promise<void>((resolve) => {
+      const source = ctx.createBufferSource()
+      const gain = ctx.createGain()
+      gain.gain.value = 1
+      source.buffer = decoded
+      source.connect(gain)
+      gain.connect(ctx.destination)
+      currentSource = source
+      source.onended = () => {
+        if (currentSource === source) currentSource = null
+        onend?.()
+        resolve()
+      }
+      source.start(0)
+    })
     return
   } catch (err) {
     console.warn('AudioContext playback failed, trying HTMLAudioElement', err)
@@ -267,6 +348,7 @@ export async function playBase64Audio(
 
   const url = `data:${audio.mimeType};base64,${audio.audioBase64}`
   const el = new Audio(url)
+  el.setAttribute('playsinline', 'true')
   el.volume = 1
   currentHtmlAudio = el
   el.onloadedmetadata = () => {
@@ -276,28 +358,32 @@ export async function playBase64Audio(
       onDuration?.(estimateSpeechMs(audio.text))
     }
   }
-  el.onended = () => {
-    if (currentHtmlAudio === el) currentHtmlAudio = null
-    onend?.()
-  }
-  el.onerror = () => {
-    if (currentHtmlAudio === el) currentHtmlAudio = null
-    onend?.()
-  }
-  try {
-    await el.play()
-  } catch (err) {
-    currentHtmlAudio = null
-    if (audio.text) {
-      await playBrowserSpeech(audio.text, { onend, onDuration })
-      return
+  await new Promise<void>((resolve, reject) => {
+    el.onended = () => {
+      if (currentHtmlAudio === el) currentHtmlAudio = null
+      onend?.()
+      resolve()
     }
-    throw new Error(
-      err instanceof Error
-        ? `Could not play sound: ${err.message}`
-        : 'Could not play sound through your speakers.',
-    )
-  }
+    el.onerror = () => {
+      if (currentHtmlAudio === el) currentHtmlAudio = null
+      onend?.()
+      resolve()
+    }
+    void el.play().catch((err) => {
+      currentHtmlAudio = null
+      if (audio.text) {
+        void playBrowserSpeech(audio.text, { onend, onDuration })
+          .then(() => resolve())
+          .catch((inner) => reject(inner))
+        return
+      }
+      reject(
+        err instanceof Error
+          ? new Error(`Could not play sound: ${err.message}`)
+          : new Error('Could not play sound through your speakers.'),
+      )
+    })
+  })
 }
 
 export async function askRebbe(payload: {

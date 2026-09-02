@@ -36,24 +36,32 @@ export function micSupported(): boolean {
   return typeof window !== 'undefined' && Boolean(getRecognitionCtor())
 }
 
-/** Detect mostly Hebrew so we can restart recognition in he-IL when needed. */
 export function looksHebrew(text: string): boolean {
   return /[\u0590-\u05FF]/.test(text)
 }
 
+/** iOS puts SpeechRecognition into a phone-call audio session. */
+export function isLikelyIOS(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /iPad|iPhone|iPod/i.test(navigator.userAgent)
+}
+
+/**
+ * Student mic — on demand only.
+ * Continuous listening keeps iPhone in “call” mode (call volume UI + mute chirps)
+ * and often silences Rebbe speech. We only open the mic when we truly need it.
+ */
 export class StudentMic {
   private recognition: RecognitionLike | null = null
   private wanted = false
-  private paused = false
   private lang: 'en-US' | 'he-IL' = 'en-US'
-  private callbacks: MicCallbacks | null = null
 
   setLang(lang: 'en-US' | 'he-IL') {
-    if (this.lang === lang) return
     this.lang = lang
-    if (this.wanted && !this.paused) {
-      this.start(this.callbacks || { onFinal: () => undefined })
-    }
+  }
+
+  isActive() {
+    return this.wanted && Boolean(this.recognition)
   }
 
   start(callbacks: MicCallbacks) {
@@ -65,13 +73,12 @@ export class StudentMic {
       return
     }
 
-    this.callbacks = callbacks
-    this.stop()
+    this.abortHard()
     this.wanted = true
-    this.paused = false
     const recognition = new Ctor()
     this.recognition = recognition
-    recognition.continuous = true
+    // Non-continuous: one utterance, then ends — releases call-audio sooner on iOS.
+    recognition.continuous = false
     recognition.interimResults = true
     recognition.lang = this.lang
 
@@ -103,13 +110,17 @@ export class StudentMic {
     }
 
     recognition.onend = () => {
-      if (this.wanted && !this.paused) {
-        try {
-          recognition.lang = this.lang
-          recognition.start()
-        } catch {
-          // ignore restart races
-        }
+      // If still wanted (listening for a repeat), restart once after a beat.
+      if (this.wanted && this.recognition === recognition) {
+        window.setTimeout(() => {
+          if (!this.wanted || this.recognition !== recognition) return
+          try {
+            recognition.lang = this.lang
+            recognition.start()
+          } catch {
+            // ignore
+          }
+        }, 280)
       }
     }
 
@@ -122,34 +133,22 @@ export class StudentMic {
     }
   }
 
-  pause() {
-    this.paused = true
-    try {
-      this.recognition?.stop()
-    } catch {
-      // ignore
+  /** Fully kill recognition so iOS can leave call-audio mode. */
+  abortHard() {
+    this.wanted = false
+    const rec = this.recognition
+    if (rec) {
+      try {
+        rec.onend = null
+        rec.abort()
+      } catch {
+        // ignore
+      }
     }
-  }
-
-  resume() {
-    if (!this.wanted || !this.recognition) return
-    this.paused = false
-    try {
-      this.recognition.lang = this.lang
-      this.recognition.start()
-    } catch {
-      // ignore
-    }
+    this.recognition = null
   }
 
   stop() {
-    this.wanted = false
-    this.paused = false
-    try {
-      this.recognition?.abort()
-    } catch {
-      // ignore
-    }
-    this.recognition = null
+    this.abortHard()
   }
 }

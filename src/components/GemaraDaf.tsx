@@ -29,7 +29,7 @@ function HighlightedLine({
   isActive: boolean
 }) {
   if (!isActive || !highlights) {
-    return <span className="daf-line-text">{text}</span>
+    return <>{text}</>
   }
 
   const parts = splitHebrewWords(text)
@@ -39,7 +39,7 @@ function HighlightedLine({
     highlights.readingIndex != null ? real[highlights.readingIndex] : null
 
   return (
-    <span className="daf-line-text">
+    <>
       {parts.map((part, i) => {
         if (!/\S/.test(part)) return <span key={i}>{part}</span>
         const kind = kinds[i]
@@ -57,7 +57,7 @@ function HighlightedLine({
           </span>
         )
       })}
-    </span>
+    </>
   )
 }
 
@@ -76,21 +76,21 @@ function CommentaryColumn({
   const rest = notes.filter((n) => n.anchorVerse !== activeLine + 1)
 
   return (
-    <aside className={`daf-col ${side}`} aria-label={labelHe}>
-      <div className="daf-col-label" dir="rtl" lang="he">
-        <span>{labelHe}</span>
+    <aside className={`vilna-side ${side}`} aria-label={labelHe}>
+      <div className="vilna-side-label" dir="rtl" lang="he">
+        {labelHe}
       </div>
-      <div className="daf-col-scroll" dir="rtl" lang="he">
+      <div className="vilna-side-body" dir="rtl" lang="he">
         {focused.length === 0 && rest.length === 0 && (
-          <p className="daf-empty">—</p>
+          <p className="daf-empty">־</p>
         )}
         {focused.map((n) => (
-          <p key={n.id} className="daf-comment focused">
+          <p key={n.id} className="vilna-rashi focused">
             {n.he}
           </p>
         ))}
         {rest.map((n) => (
-          <p key={n.id} className="daf-comment">
+          <p key={n.id} className="vilna-rashi">
             {n.he}
           </p>
         ))}
@@ -100,11 +100,9 @@ function CommentaryColumn({
 }
 
 function splitRef(ref: string, heRef: string) {
-  // e.g. "Bava Metzia 21a" / Hebrew folio
   const en = ref.replace(/^Bava[_\s]Metzia\s*/i, '').trim() || ref
   return {
     masechtaHe: 'בבא מציעא',
-    masechtaEn: 'Bava Metzia',
     folioHe: heRef || en,
     folioEn: en,
   }
@@ -120,20 +118,22 @@ export function GemaraDaf({
   const head = splitRef(page.ref, page.heRef)
 
   return (
-    <div className="daf-page" aria-label="Gemara page">
-      <header className="daf-page-head" dir="rtl">
-        <span className="daf-head-side" lang="he">
+    <div className="vilna-page" aria-label="Gemara page">
+      <header className="vilna-head" dir="rtl">
+        <span className="vilna-head-masechta" lang="he">
           {head.masechtaHe}
         </span>
-        <span className="daf-head-center" lang="he">
+        <span className="vilna-head-folio" lang="he">
           {head.folioHe}
         </span>
-        <span className="daf-head-side daf-head-en" lang="en" dir="ltr">
+        <span className="vilna-head-en" lang="en" dir="ltr">
           {head.folioEn}
         </span>
       </header>
 
-      <div className="daf-body">
+      <div className="vilna-rule" aria-hidden />
+
+      <div className="vilna-grid">
         <CommentaryColumn
           labelHe="תוספות"
           notes={page.tosafot}
@@ -141,8 +141,8 @@ export function GemaraDaf({
           side="tosafot"
         />
 
-        <section className="daf-col center" aria-label="Gemara">
-          <div className="daf-center-scroll" dir="rtl" lang="he">
+        <section className="vilna-center" aria-label="Gemara">
+          <div className="vilna-center-body" dir="rtl" lang="he">
             {page.hebrew.map((line, i) => {
               if (!line.trim()) return null
               const mishnah = isMishnahLine(page.english[i] || '', line)
@@ -152,12 +152,14 @@ export function GemaraDaf({
                 ? 'mishnah'
                 : gemaraMark
                   ? 'gemara-mark'
-                  : 'gemara'
+                  : sawGemara
+                    ? 'gemara'
+                    : 'gemara'
               return (
                 <button
                   key={i}
                   type="button"
-                  className={`daf-line ${kind}${i === lineIndex ? ' active' : ''}${sawGemara && !mishnah && !gemaraMark ? ' after-g' : ''}`}
+                  className={`vilna-line ${kind}${i === lineIndex ? ' active' : ''}`}
                   onClick={() => onSelectLine(i)}
                 >
                   <HighlightedLine

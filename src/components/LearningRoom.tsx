@@ -14,8 +14,8 @@ import { StudentMic, looksHebrew, micSupported } from '../lib/mic'
 import {
   askRebbe,
   playBase64Audio,
-  playBrowserSpeech,
-  speakAgain,
+  reclaimPlaybackRoute,
+  speakTextAudibly,
   stopSpeaking,
   unlockAudio,
   type ChatMessage,
@@ -100,7 +100,7 @@ export function LearningRoom({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [speaking, setSpeaking] = useState(false)
-  const [micMuted, setMicMuted] = useState(false)
+  const [micMuted, setMicMuted] = useState(true)
   const [micListening, setMicListening] = useState(false)
   const [needsGesture, setNeedsGesture] = useState(false)
   const [phase, setPhase] = useState<DrillPhase>('idle')
@@ -190,11 +190,11 @@ export function LearningRoom({
     if (!audio) {
       setSpeaking(false)
       clearWalk()
-      if (!micMutedRef.current) micRef.current?.resume()
       return
     }
     setSpeaking(true)
-    micRef.current?.pause()
+    stopMic()
+    await reclaimPlaybackRoute()
     try {
       await playBase64Audio(audio, {
         onDuration: (ms) => startReadingWalk(ms),
@@ -205,7 +205,6 @@ export function LearningRoom({
           setHighlights((prev) =>
             prev ? { ...prev, readingIndex: null } : prev,
           )
-          if (!micMutedRef.current) micRef.current?.resume()
         },
       })
       setNeedsGesture(false)
@@ -214,7 +213,6 @@ export function LearningRoom({
       clearWalk()
       setNeedsGesture(true)
       setError(friendlyError(err))
-      if (!micMutedRef.current) micRef.current?.resume()
       throw err
     }
   }
@@ -225,45 +223,29 @@ export function LearningRoom({
   ) {
     if (!text.trim()) return
     setSpeaking(true)
-    micRef.current?.pause()
+    // Fully kill mic so iPhone leaves call-audio mode before speaking.
+    stopMic()
+    await reclaimPlaybackRoute()
     try {
-      if (opts?.hebrew) {
-        await playBrowserSpeech(text, {
-          lang: 'he-IL',
-          rate: 0.76,
-          pitch: 0.9,
-          onDuration: (ms) => startReadingWalk(ms),
-        })
-      } else if (opts?.audio) {
+      if (opts?.audio) {
         await playAudio(opts.audio)
         return
-      } else {
-        // Local male voice first — reliable sound and much faster than TTS.
-        await playBrowserSpeech(text, {
-          lang: 'en-US',
-          rate: 0.9,
-          pitch: 0.85,
-          onDuration: (ms) => startReadingWalk(ms),
-        })
       }
+      await speakTextAudibly(text, voiceRef.current, {
+        lang: opts?.hebrew ? 'he-IL' : 'en-US',
+        rate: opts?.hebrew ? 0.76 : 0.9,
+        pitch: opts?.hebrew ? 0.9 : 0.85,
+        onDuration: (ms) => startReadingWalk(ms),
+      })
       setSpeaking(false)
       clearWalk()
       setNeedsGesture(false)
-      if (!micMutedRef.current) micRef.current?.resume()
     } catch (err) {
-      // Last resort: try Gemini / server speech once.
-      try {
-        const audio = await speakAgain(text, voiceRef.current)
-        await playAudio(audio)
-        return
-      } catch (inner) {
-        setSpeaking(false)
-        clearWalk()
-        setNeedsGesture(true)
-        setError(friendlyError(inner))
-        if (!micMutedRef.current) micRef.current?.resume()
-        throw inner
-      }
+      setSpeaking(false)
+      clearWalk()
+      setNeedsGesture(true)
+      setError(friendlyError(err))
+      throw err
     }
   }
 
@@ -280,6 +262,7 @@ export function LearningRoom({
   }
 
   async function finishExplain(requestId: number) {
+    stopMic()
     setPhase('idle')
     if (requestId !== requestIdRef.current) return
     let explain = pendingExplainRef.current
@@ -301,6 +284,7 @@ export function LearningRoom({
   async function runDrill(lesson: RebbeResponse, requestId: number) {
     lastLessonRef.current = lesson
     applyMarks(lesson.highlights, lesson.hebrew)
+    stopMic()
 
     if (lesson.welcome && !welcomedRef.current) {
       welcomedRef.current = true
@@ -325,10 +309,8 @@ export function LearningRoom({
       await speakUtterance('Now you say it.')
       if (requestId !== requestIdRef.current) return
       setPhase('listening-repeat')
-      micRef.current?.setLang(
-        looksHebrew(repeatTargetRef.current) ? 'he-IL' : 'en-US',
-      )
-      if (!micMutedRef.current) micRef.current?.resume()
+      // Open mic only for the repeat — keeps iPhone out of call mode while Rebbe speaks.
+      startMic(true)
       return
     }
 
@@ -505,12 +487,19 @@ export function LearningRoom({
     if (text.length < 2) return
     if (busyRef.current) return
     if (looksHebrew(text)) micRef.current?.setLang('he-IL')
+    stopMic()
     void runFollowUp('ask', text)
   }
 
-  function startMic() {
-    if (!micAvailable || micMutedRef.current) return
+  function startMic(forRepeat = false) {
+    if (!micAvailable) return
+    if (!forRepeat && micMutedRef.current) return
     if (!micRef.current) micRef.current = new StudentMic()
+    if (forRepeat) {
+      micRef.current.setLang(
+        looksHebrew(repeatTargetRef.current) ? 'he-IL' : 'en-US',
+      )
+    }
     micRef.current.start({
       onFinal: handleSpokenQuestion,
       onError: (message) => setError(message),
@@ -530,6 +519,7 @@ export function LearningRoom({
     setMessages([])
     setHighlights(null)
     setPhase('idle')
+    stopMic()
     fetchGemaraPage(daf)
       .then((data) => {
         if (cancelled) return
@@ -539,7 +529,6 @@ export function LearningRoom({
         setLineIndex(start)
         lineRef.current = start
         void teachCurrentLine()
-        if (!micMutedRef.current) startMic()
       })
       .catch((err: Error) => {
         if (!cancelled) setPageError(err.message)
@@ -562,6 +551,7 @@ export function LearningRoom({
     if (!current) return
     if (nextIndex < 0 || nextIndex >= current.hebrew.length) return
     stopSpeaking()
+    stopMic()
     clearWalk()
     setSpeaking(false)
     setPhase('idle')
@@ -570,12 +560,16 @@ export function LearningRoom({
     void teachCurrentLine()
   }
 
-  function toggleMute() {
-    const next = !micMuted
-    setMicMuted(next)
-    micMutedRef.current = next
-    if (next) stopMic()
-    else startMic()
+  function toggleMicAsk() {
+    if (micListening && phase !== 'listening-repeat') {
+      stopMic()
+      setMicMuted(true)
+      micMutedRef.current = true
+      return
+    }
+    setMicMuted(false)
+    micMutedRef.current = false
+    startMic(false)
   }
 
   async function hearAgainFromTap() {
@@ -606,11 +600,9 @@ export function LearningRoom({
         ? 'Your turn — say it'
         : needsGesture
           ? 'Tap Replay to hear'
-          : micMuted
-            ? 'Muted'
-            : micListening
-              ? 'Listening'
-              : 'Ready'
+          : micListening
+            ? 'Listening — ask aloud'
+            : 'Ready'
 
   return (
     <div className="shell room">
@@ -708,10 +700,13 @@ export function LearningRoom({
               )}
               <button
                 type="button"
-                className={`mic-btn${micMuted ? ' off' : ''}${micListening && !micMuted ? ' live' : ''}`}
-                onClick={toggleMute}
+                className={`mic-btn${micListening ? ' live' : ''}`}
+                onClick={toggleMicAsk}
+                disabled={speaking || phase === 'listening-repeat'}
               >
-                {micMuted ? 'Unmute' : 'Mute'}
+                {micListening && phase !== 'listening-repeat'
+                  ? 'Stop mic'
+                  : 'Ask with mic'}
               </button>
               <button
                 type="button"
@@ -730,7 +725,6 @@ export function LearningRoom({
                   setHighlights((prev) =>
                     prev ? { ...prev, readingIndex: null } : prev,
                   )
-                  if (!micMutedRef.current) micRef.current?.resume()
                 }}
               >
                 Stop
