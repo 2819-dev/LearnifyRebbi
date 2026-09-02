@@ -9,6 +9,8 @@ import {
   logoutAccount,
   registerAccount,
   requireRole,
+  safeErrorMessage,
+  scrubPii,
   setUserRole,
   updateTicket,
 } from './account-core.mjs'
@@ -18,6 +20,10 @@ function tokenFrom(c, body = {}) {
   const header = c.req.header('authorization') || ''
   if (header.toLowerCase().startsWith('bearer ')) return header.slice(7).trim()
   return body.token || ''
+}
+
+function json(c, payload, status = 200) {
+  return c.json(scrubPii(payload), status)
 }
 
 export function mountAccountRoutes(app) {
@@ -30,20 +36,20 @@ export function mountAccountRoutes(app) {
     }
     const action = body.action || ''
     try {
-      if (action === 'register') return c.json(await registerAccount(body))
-      if (action === 'login') return c.json(await loginAccount(body))
+      if (action === 'register') return json(c, await registerAccount(body))
+      if (action === 'login') return json(c, await loginAccount(body))
       if (action === 'logout') {
         await logoutAccount(tokenFrom(c, body))
-        return c.json({ ok: true })
+        return json(c, { ok: true })
       }
       if (action === 'me') {
-        return c.json({ account: await accountFromToken(tokenFrom(c, body)) })
+        return json(c, { account: await accountFromToken(tokenFrom(c, body)) })
       }
       if (action === 'users') {
-        return c.json({ users: await listUsers(tokenFrom(c, body)) })
+        return json(c, { users: await listUsers(tokenFrom(c, body)) })
       }
       if (action === 'setRole') {
-        return c.json({
+        return json(c, {
           account: await setUserRole(
             tokenFrom(c, body),
             body.accountId,
@@ -52,7 +58,7 @@ export function mountAccountRoutes(app) {
         })
       }
       if (action === 'createTicket') {
-        return c.json({
+        return json(c, {
           ticket: await createTicket({
             token: tokenFrom(c, body),
             name: body.name,
@@ -63,10 +69,10 @@ export function mountAccountRoutes(app) {
         })
       }
       if (action === 'tickets') {
-        return c.json({ tickets: await listTickets(tokenFrom(c, body)) })
+        return json(c, { tickets: await listTickets(tokenFrom(c, body)) })
       }
       if (action === 'updateTicket') {
-        return c.json({
+        return json(c, {
           ticket: await updateTicket(
             tokenFrom(c, body),
             body.ticketId,
@@ -75,10 +81,10 @@ export function mountAccountRoutes(app) {
         })
       }
       if (action === 'trainingList') {
-        return c.json({ training: await listTraining(tokenFrom(c, body)) })
+        return json(c, { training: await listTraining(tokenFrom(c, body)) })
       }
       if (action === 'trainingSave') {
-        return c.json({
+        return json(c, {
           training: await addTraining(tokenFrom(c, body), body),
         })
       }
@@ -94,15 +100,15 @@ export function mountAccountRoutes(app) {
           question: body.question || 'Practice reply.',
           needWelcome: false,
         })
-        return c.json({
+        return json(c, {
           reply: lesson.speech || lesson.explain || '',
           highlights: lesson.highlights || [],
         })
       }
-      return c.json({ error: 'Unknown action' }, 400)
+      return json(c, { error: 'Unknown action' }, 400)
     } catch (err) {
-      console.error(err)
-      return c.json({ error: err?.message || 'Request failed' }, err?.status || 500)
+      console.error(safeErrorMessage(err), err?.status || 500)
+      return json(c, { error: safeErrorMessage(err) }, err?.status || 500)
     }
   })
 
@@ -114,16 +120,16 @@ export function mountAccountRoutes(app) {
         ? header.slice(7).trim()
         : c.req.query('token') || ''
       if (action === 'me') {
-        return c.json({ account: await accountFromToken(token) })
+        return json(c, { account: await accountFromToken(token) })
       }
-      if (action === 'users') return c.json({ users: await listUsers(token) })
-      if (action === 'tickets') return c.json({ tickets: await listTickets(token) })
+      if (action === 'users') return json(c, { users: await listUsers(token) })
+      if (action === 'tickets') return json(c, { tickets: await listTickets(token) })
       if (action === 'trainingList') {
-        return c.json({ training: await listTraining(token) })
+        return json(c, { training: await listTraining(token) })
       }
-      return c.json({ error: 'Unknown action' }, 400)
+      return json(c, { error: 'Unknown action' }, 400)
     } catch (err) {
-      return c.json({ error: err?.message || 'Request failed' }, err?.status || 500)
+      return json(c, { error: safeErrorMessage(err) }, err?.status || 500)
     }
   })
 }

@@ -61,6 +61,35 @@ function publicTicket(ticket) {
   }
 }
 
+const PII_KEYS = new Set([
+  'phone',
+  'phoneNumber',
+  'tel',
+  'mobile',
+  'password',
+  'passwordHash',
+  'hash',
+  'salt',
+])
+
+/** Strip phones / secrets from any payload before it reaches the browser. */
+export function scrubPii(value) {
+  if (Array.isArray(value)) return value.map(scrubPii)
+  if (!value || typeof value !== 'object') return value
+  const out = {}
+  for (const [key, next] of Object.entries(value)) {
+    if (PII_KEYS.has(key)) continue
+    out[key] = scrubPii(next)
+  }
+  return out
+}
+
+export function safeErrorMessage(err) {
+  const raw = String(err?.message || 'Request failed')
+  // Never echo digits that look like phone numbers back to the client.
+  return raw.replace(/\+?\d[\d\s().-]{7,}\d/g, '[redacted]')
+}
+
 function phoneDigits(phone) {
   return String(phone || '')
     .replace(/\D/g, '')

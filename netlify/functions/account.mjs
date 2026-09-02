@@ -8,6 +8,8 @@ import {
   loginAccount,
   logoutAccount,
   registerAccount,
+  safeErrorMessage,
+  scrubPii,
   setUserRole,
   updateTicket,
 } from '../../server/account-core.mjs'
@@ -25,11 +27,12 @@ function tokenFrom(req, body) {
   return body?.token || ''
 }
 
+function ok(payload, status = 200) {
+  return Response.json(scrubPii(payload), { status, headers: corsHeaders })
+}
+
 function errResponse(err) {
-  return Response.json(
-    { error: err?.message || 'Request failed' },
-    { status: err?.status || 500, headers: corsHeaders },
-  )
+  return ok({ error: safeErrorMessage(err) }, err?.status || 500)
 }
 
 export default async (req) => {
@@ -53,23 +56,23 @@ export default async (req) => {
   try {
     if (action === 'register') {
       const result = await registerAccount(body)
-      return Response.json(result, { headers: corsHeaders })
+      return ok(result)
     }
     if (action === 'login') {
       const result = await loginAccount(body)
-      return Response.json(result, { headers: corsHeaders })
+      return ok(result)
     }
     if (action === 'logout') {
       await logoutAccount(tokenFrom(req, body))
-      return Response.json({ ok: true }, { headers: corsHeaders })
+      return ok({ ok: true })
     }
     if (action === 'me') {
       const account = await accountFromToken(tokenFrom(req, body))
-      return Response.json({ account }, { headers: corsHeaders })
+      return ok({ account })
     }
     if (action === 'users') {
       const users = await listUsers(tokenFrom(req, body))
-      return Response.json({ users }, { headers: corsHeaders })
+      return ok({ users })
     }
     if (action === 'setRole') {
       const account = await setUserRole(
@@ -77,7 +80,7 @@ export default async (req) => {
         body.accountId,
         body.role,
       )
-      return Response.json({ account }, { headers: corsHeaders })
+      return ok({ account })
     }
     if (action === 'createTicket') {
       const ticket = await createTicket({
@@ -87,11 +90,11 @@ export default async (req) => {
         subject: body.subject,
         body: body.body,
       })
-      return Response.json({ ticket }, { headers: corsHeaders })
+      return ok({ ticket })
     }
     if (action === 'tickets') {
       const tickets = await listTickets(tokenFrom(req, body))
-      return Response.json({ tickets }, { headers: corsHeaders })
+      return ok({ tickets })
     }
     if (action === 'updateTicket') {
       const ticket = await updateTicket(
@@ -99,15 +102,15 @@ export default async (req) => {
         body.ticketId,
         body.status,
       )
-      return Response.json({ ticket }, { headers: corsHeaders })
+      return ok({ ticket })
     }
     if (action === 'trainingList') {
       const training = await listTraining(tokenFrom(req, body))
-      return Response.json({ training }, { headers: corsHeaders })
+      return ok({ training })
     }
     if (action === 'trainingSave') {
       const row = await addTraining(tokenFrom(req, body), body)
-      return Response.json({ training: row }, { headers: corsHeaders })
+      return ok({ training: row })
     }
     if (action === 'trainingChat') {
       await accountFromToken(tokenFrom(req, body)) // any signed-in tester/admin checked below
@@ -125,21 +128,15 @@ export default async (req) => {
         tosafotForLine: '',
         needWelcome: false,
       })
-      return Response.json(
-        {
-          reply: lesson.speech || lesson.explain || '',
-          highlights: lesson.highlights || [],
-        },
-        { headers: corsHeaders },
-      )
+      return ok({
+        reply: lesson.speech || lesson.explain || '',
+        highlights: lesson.highlights || [],
+      })
     }
 
-    return Response.json(
-      { error: 'Unknown action' },
-      { status: 400, headers: corsHeaders },
-    )
+    return ok({ error: 'Unknown action' }, 400)
   } catch (err) {
-    console.error(err)
+    console.error(safeErrorMessage(err), err?.status || 500)
     return errResponse(err)
   }
 }
