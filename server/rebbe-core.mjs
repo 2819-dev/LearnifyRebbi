@@ -3,39 +3,45 @@ import curriculum from '../src/data/hashavas-aveidah.json' with { type: 'json' }
 
 export const APP_NAME = 'Guide'
 
-export const SYSTEM_PROMPT = `You are a Rebbe learning one-on-one with a Jewish child (about 9–14) in Guide.
+export const SYSTEM_PROMPT = `You are a warm, professional male Rebbe tutoring ONE Jewish child (about 9–14) in Guide.
 
-Talk only to THIS student. Never say everyone, class, or sit down.
+Never speak to a class. Never say everyone or sit down.
 
-HOW YOU SOUND:
-- Clear English, warm and patient.
-- Use Hebrew words when teaching Gemara terms, then explain them.
-- If the student asks in Hebrew or asks what a Hebrew word means, answer that.
-- Keep it short: 2 to 4 spoken sentences.
+VOICE:
+- Calm adult man. Clear. Kind. Not theatrical.
+- English is the main language.
+- Pronounce Hebrew carefully and correctly when you say Hebrew words.
+
+TEACH / CONTINUE PEDAGOGY (important):
+1) Pick a short chunk from the Gemara line — about 2 to 4 words (not one isolated word unless it is a key term alone).
+2) The student will hear: Hebrew chunk → English meaning → then they repeat.
+3) After they repeat, you give a tiny explanation (1–2 sentences).
+
+ASK MODE:
+- Answer briefly and clearly.
 
 STRICT ACCURACY:
-- Use ONLY the Gemara line, any Rashi/Tosafot provided, and the curriculum notes.
-- Do not invent meforshim.
-- No practical psak for real life.
+- Use ONLY the Gemara line, Rashi/Tosafot provided, and curriculum notes.
+- No invented meforshim. No practical real-life psak.
 
-OUTPUT FORMAT (required):
-Return ONLY valid JSON with this shape:
+OUTPUT — ONLY valid JSON:
 {
-  "speech": "exactly what you say out loud",
+  "welcome": "empty string usually; one short welcome only if asked",
+  "hebrew": "2–4 Hebrew words from the line",
+  "english": "plain English meaning of that chunk",
+  "explain": "1–2 spoken sentences after the student repeats",
+  "speech": "for ask/continue free talk: what you say out loud; otherwise empty",
   "highlights": [
-    { "word": "Hebrew or transliterated word from the line", "kind": "term|rashi|focus|reading" }
+    { "word": "Hebrew word from the line", "kind": "term|rashi|focus|reading" }
   ]
 }
-- "speech" is spoken aloud. No markdown.
-- "highlights" marks words on the Gemara line the student should notice.
-- kind meanings: reading=words being read; term=key concept; rashi=look in Rashi; focus=decide the din.
-- Prefer 1 to 4 highlights. If none, use [].`
+Keep every spoken field short. Prefer 1–3 highlights.`
 
 export const REBBE_VOICES = [
+  { id: 'Charon', label: 'Teacher', blurb: 'Warm professional man.' },
   { id: 'Sadaltager', label: 'Steady', blurb: 'Clear and knowledgeable.' },
-  { id: 'Charon', label: 'Patient', blurb: 'Calm and careful.' },
-  { id: 'Gacrux', label: 'Warm', blurb: 'Gentle and mature.' },
-  { id: 'Schedar', label: 'Even', blurb: 'Steady pacing.' },
+  { id: 'Schedar', label: 'Even', blurb: 'Calm and measured.' },
+  { id: 'Gacrux', label: 'Warm', blurb: 'Gentle pacing.' },
 ]
 
 function clip(text, max = 420) {
@@ -69,20 +75,36 @@ async function withRetry(fn, tries = 3) {
         status === 503 ||
         /high demand|quota|rate|unavailable|Resource exhausted/i.test(msg)
       if (!retryable || i === tries - 1) throw err
-      await new Promise((r) => setTimeout(r, 800 * (i + 1) * (i + 1)))
+      await new Promise((r) => setTimeout(r, 600 * (i + 1) * (i + 1)))
     }
   }
   throw lastErr
 }
 
-function parseLessonPayload(raw) {
+function chunkHebrewFallback(hebrewLine = '', englishLine = '') {
+  const words = String(hebrewLine)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  const hebrew = words.slice(0, Math.min(3, Math.max(2, words.length))).join(' ')
+  const english = clip(englishLine, 120) || 'Look carefully at these words.'
+  return {
+    hebrew,
+    english,
+    explain: hebrew
+      ? 'Good. Keep those words in mind as we learn this line.'
+      : 'Let us look at this line together.',
+  }
+}
+
+function parseLessonPayload(raw, hebrewLine = '', englishLine = '') {
   const text = String(raw || '').trim()
+  const fallback = chunkHebrewFallback(hebrewLine, englishLine)
   try {
     const start = text.indexOf('{')
     const end = text.lastIndexOf('}')
     if (start >= 0 && end > start) {
       const parsed = JSON.parse(text.slice(start, end + 1))
-      const speech = clip(parsed.speech || parsed.reply || text, 700)
       const highlights = Array.isArray(parsed.highlights)
         ? parsed.highlights
             .map((h) => ({
@@ -94,12 +116,32 @@ function parseLessonPayload(raw) {
             .filter((h) => h.word)
             .slice(0, 6)
         : []
-      return { speech, highlights }
+
+      const hebrew = clip(parsed.hebrew || fallback.hebrew, 120)
+      const english = clip(parsed.english || fallback.english, 160)
+      const explain = clip(parsed.explain || fallback.explain, 280)
+      const welcome = clip(parsed.welcome || '', 160)
+      const speech = clip(
+        parsed.speech ||
+          [hebrew && `Hebrew: ${hebrew}`, english && `That means: ${english}`, explain]
+            .filter(Boolean)
+            .join(' '),
+        700,
+      )
+
+      return { welcome, hebrew, english, explain, speech, highlights }
     }
   } catch {
     // fall through
   }
-  return { speech: clip(text, 700), highlights: [] }
+  return {
+    welcome: '',
+    hebrew: fallback.hebrew,
+    english: fallback.english,
+    explain: fallback.explain,
+    speech: clip(text || fallback.explain, 700),
+    highlights: [],
+  }
 }
 
 export async function generateRebbeReply(body) {
@@ -120,6 +162,7 @@ export async function generateRebbeReply(body) {
     question,
     rashiForLine = '',
     tosafotForLine = '',
+    needWelcome = false,
   } = body || {}
 
   const genAI = new GoogleGenerativeAI(apiKey)
@@ -127,8 +170,8 @@ export async function generateRebbeReply(body) {
     model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
     systemInstruction: SYSTEM_PROMPT,
     generationConfig: {
-      maxOutputTokens: 280,
-      temperature: 0.55,
+      maxOutputTokens: 220,
+      temperature: 0.45,
       responseMimeType: 'application/json',
     },
   })
@@ -136,25 +179,35 @@ export async function generateRebbeReply(body) {
   const context = [
     `Page: ${gemaraRef} (line ${lineIndex})`,
     `Center Hebrew: ${clip(hebrewLine, 360)}`,
-    `English crib: ${clip(englishLine, 280)}`,
-    `Rashi: ${clip(rashiForLine, 280) || '(none)'}`,
-    `Tosafot: ${clip(tosafotForLine, 180) || '(none)'}`,
+    `English crib: ${clip(englishLine, 220)}`,
+    `Rashi: ${clip(rashiForLine, 220) || '(none)'}`,
+    `Tosafot: ${clip(tosafotForLine, 140) || '(none)'}`,
     buildCurriculumBlock(),
+    needWelcome
+      ? 'Include a one-sentence welcome in "welcome".'
+      : 'Leave "welcome" empty.',
     mode === 'teach'
-      ? 'Teach this line briefly to the one student.'
+      ? 'Teach mode: fill hebrew, english, explain. Keep speech empty or short.'
       : mode === 'continue'
-        ? 'Continue briefly.'
-        : 'Answer the student. They may mix English and Hebrew.',
+        ? 'Continue: next chunk of the same line (or deepen briefly). Fill hebrew/english/explain.'
+        : 'Ask mode: put the spoken answer in "speech". hebrew/english may be empty.',
   ].join('\n')
 
   const history = messages
     .filter((m) => m && (m.role === 'user' || m.role === 'model'))
-    .slice(-6)
+    .slice(-4)
     .map((m) => {
-      const content = clip(m.content, 500)
+      const content = clip(m.content, 360)
       const text =
         m.role === 'model'
-          ? JSON.stringify({ speech: content, highlights: [] })
+          ? JSON.stringify({
+              speech: content,
+              hebrew: '',
+              english: '',
+              explain: '',
+              welcome: '',
+              highlights: [],
+            })
           : content
       return {
         role: m.role === 'model' ? 'model' : 'user',
@@ -174,7 +227,11 @@ export async function generateRebbeReply(body) {
           parts: [
             {
               text: JSON.stringify({
-                speech: 'Understood.',
+                welcome: '',
+                hebrew: '',
+                english: '',
+                explain: '',
+                speech: 'Ready.',
                 highlights: [],
               }),
             },
@@ -186,13 +243,13 @@ export async function generateRebbeReply(body) {
 
     const prompt =
       mode === 'teach'
-        ? 'Teach this line now.'
+        ? 'Teach the next short chunk now.'
         : mode === 'continue'
-          ? 'Continue briefly.'
+          ? 'Continue with the next short chunk.'
           : String(question || 'Please explain that more simply.')
 
     const result = await chat.sendMessage(prompt)
-    return parseLessonPayload(result.response.text())
+    return parseLessonPayload(result.response.text(), hebrewLine, englishLine)
   })
 }
 
@@ -236,7 +293,7 @@ async function requestGeminiSpeech(model, apiKey, spoken, voice) {
           {
             parts: [
               {
-                text: `Speak warmly to one student, natural and calm:\n${spoken}`,
+                text: `You are a calm professional adult male Jewish teacher speaking to one student. Speak naturally. Pronounce any Hebrew words carefully and correctly. Do not sound rushed:\n${spoken}`,
               },
             ],
           },
@@ -286,7 +343,7 @@ async function requestGeminiSpeech(model, apiKey, spoken, voice) {
   }
 }
 
-export async function synthesizeRebbeSpeech(text, voiceName = 'Sadaltager') {
+export async function synthesizeRebbeSpeech(text, voiceName = 'Charon') {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     const error = new Error('Missing GEMINI_API_KEY')
@@ -295,8 +352,8 @@ export async function synthesizeRebbeSpeech(text, voiceName = 'Sadaltager') {
   }
 
   const allowed = new Set(REBBE_VOICES.map((v) => v.id))
-  const voice = allowed.has(voiceName) ? voiceName : 'Sadaltager'
-  const spoken = clip(String(text || '').trim(), 520)
+  const voice = allowed.has(voiceName) ? voiceName : 'Charon'
+  const spoken = clip(String(text || '').trim(), 480)
   if (!spoken) {
     const error = new Error('Nothing to speak')
     error.status = 400

@@ -6,6 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
+function lessonResponse(lesson, audio = null) {
+  return {
+    reply: lesson.speech || lesson.explain || '',
+    welcome: lesson.welcome || '',
+    hebrew: lesson.hebrew || '',
+    english: lesson.english || '',
+    explain: lesson.explain || '',
+    highlights: lesson.highlights || [],
+    audio,
+  }
+}
+
 export default async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('', { status: 204, headers: corsHeaders })
@@ -39,10 +51,22 @@ export default async (req) => {
     }
 
     const lesson = await generateRebbeReply(body)
-    return Response.json(
-      { reply: lesson.speech, highlights: lesson.highlights },
-      { headers: corsHeaders },
-    )
+    // Prefetch first spoken beat to cut a round-trip.
+    const firstText =
+      lesson.welcome ||
+      lesson.hebrew ||
+      lesson.speech ||
+      lesson.explain ||
+      ''
+    let audio = null
+    if (body?.includeSpeech !== false && firstText && !lesson.hebrew) {
+      // Free-talk / ask: attach speech audio for the reply.
+      audio = await synthesizeRebbeSpeech(firstText, body.voice)
+    } else if (body?.includeSpeech !== false && lesson.welcome && !lesson.hebrew) {
+      audio = await synthesizeRebbeSpeech(lesson.welcome, body.voice)
+    }
+
+    return Response.json(lessonResponse(lesson, audio), { headers: corsHeaders })
   } catch (err) {
     console.error(err)
     return Response.json(

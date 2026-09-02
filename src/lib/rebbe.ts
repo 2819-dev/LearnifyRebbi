@@ -22,6 +22,11 @@ export type TextHighlight = {
 export type RebbeResponse = {
   reply: string
   highlights: TextHighlight[]
+  welcome?: string
+  hebrew?: string
+  english?: string
+  explain?: string
+  audio?: SpeakPayload | null
 }
 
 export type PlayHandlers = {
@@ -125,16 +130,24 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer
 }
 
-function pickBrowserVoice(): SpeechSynthesisVoice | null {
+function pickBrowserVoice(lang?: string): SpeechSynthesisVoice | null {
   if (typeof window === 'undefined' || !window.speechSynthesis) return null
   const voices = window.speechSynthesis.getVoices()
+  const wantHe = lang?.toLowerCase().startsWith('he')
+  if (wantHe) {
+    return (
+      voices.find((v) => /^he(-|_)/i.test(v.lang)) ||
+      voices.find((v) => /hebrew|ivrit/i.test(`${v.name} ${v.lang}`)) ||
+      null
+    )
+  }
   const preferred = [
-    /google us english/i,
     /google uk english male/i,
-    /microsoft (guy|davis|tony|mark)/i,
+    /microsoft (guy|davis|tony|mark|andrew)/i,
     /\bdaniel\b/i,
-    /\balex\b/i,
     /\bdavid\b/i,
+    /\balex\b/i,
+    /google us english/i,
     /english \(united states\)/i,
     /^en(-|_)/i,
   ]
@@ -147,16 +160,20 @@ function pickBrowserVoice(): SpeechSynthesisVoice | null {
 
 function estimateSpeechMs(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length
-  return Math.max(1800, Math.round((words / 2.4) * 1000))
+  return Math.max(1400, Math.round((words / 2.4) * 1000))
+}
+
+export type BrowserSpeechOptions = PlayHandlers & {
+  lang?: string
+  rate?: number
 }
 
 export async function playBrowserSpeech(
   text: string,
-  handlers?: PlayHandlers | (() => void),
+  handlers?: BrowserSpeechOptions | (() => void),
 ): Promise<void> {
-  const onend = typeof handlers === 'function' ? handlers : handlers?.onend
-  const onDuration =
-    typeof handlers === 'function' ? undefined : handlers?.onDuration
+  const opts = typeof handlers === 'function' ? { onend: handlers } : handlers || {}
+  const { onend, onDuration, lang, rate } = opts
 
   if (typeof window === 'undefined' || !window.speechSynthesis) {
     throw new Error('No speaker voice available in this browser.')
@@ -170,10 +187,11 @@ export async function playBrowserSpeech(
       if (started) return
       started = true
       const utter = new SpeechSynthesisUtterance(text)
-      const voice = pickBrowserVoice()
+      const voice = pickBrowserVoice(lang)
       if (voice) utter.voice = voice
-      utter.rate = 0.92
-      utter.pitch = 0.95
+      if (lang) utter.lang = lang
+      utter.rate = rate ?? (lang?.startsWith('he') ? 0.85 : 0.92)
+      utter.pitch = 0.92
       utter.volume = 1
       utter.onend = () => {
         resolve()
@@ -285,6 +303,8 @@ export async function askRebbe(payload: {
   voice: string
   rashiForLine?: string
   tosafotForLine?: string
+  needWelcome?: boolean
+  includeSpeech?: boolean
 }): Promise<RebbeResponse> {
   const res = await fetch('/api/rebbe', {
     method: 'POST',
@@ -296,8 +316,16 @@ export async function askRebbe(payload: {
     throw new Error(data.error || 'Rebbe is unavailable right now.')
   }
   return {
-    reply: String(data.reply || ''),
+    reply: String(data.reply || data.explain || ''),
+    welcome: String(data.welcome || ''),
+    hebrew: String(data.hebrew || ''),
+    english: String(data.english || ''),
+    explain: String(data.explain || ''),
     highlights: normalizeHighlights(data.highlights),
+    audio:
+      data.audio?.audioBase64 || data.audio?.source === 'browser'
+        ? (data.audio as SpeakPayload)
+        : null,
   }
 }
 

@@ -20,24 +20,24 @@ export function markOnboardingDone(): void {
 
 export const REBBE_VOICES = [
   {
+    id: 'Charon',
+    label: 'Teacher',
+    blurb: 'Warm professional man.',
+  },
+  {
     id: 'Sadaltager',
     label: 'Steady',
     blurb: 'Clear and knowledgeable.',
   },
   {
-    id: 'Charon',
-    label: 'Patient',
-    blurb: 'Calm and careful.',
+    id: 'Schedar',
+    label: 'Even',
+    blurb: 'Calm and measured.',
   },
   {
     id: 'Gacrux',
     label: 'Warm',
-    blurb: 'Gentle and mature.',
-  },
-  {
-    id: 'Schedar',
-    label: 'Even',
-    blurb: 'Steady pacing.',
+    blurb: 'Gentle pacing.',
   },
 ] as const
 

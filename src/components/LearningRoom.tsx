@@ -13,10 +13,12 @@ import { StudentMic, looksHebrew, micSupported } from '../lib/mic'
 import {
   askRebbe,
   playBase64Audio,
+  playBrowserSpeech,
   speakAgain,
   stopSpeaking,
   unlockAudio,
   type ChatMessage,
+  type RebbeResponse,
   type SpeakPayload,
   type TextHighlight,
 } from '../lib/rebbe'
@@ -34,6 +36,8 @@ type Props = {
   onVoiceIdChange: (id: string) => void
   onShowTour?: () => void
 }
+
+type DrillPhase = 'idle' | 'listening-repeat'
 
 function lineCommentText(
   page: GemaraPage,
@@ -61,6 +65,25 @@ function friendlyError(err: unknown): string {
   return 'Something went wrong. Please try again.'
 }
 
+function normalizeSpeech(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\u0590-\u05FFa-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function roughlyMatches(heard: string, target: string): boolean {
+  const a = normalizeSpeech(heard)
+  const b = normalizeSpeech(target)
+  if (!a || !b) return a.length >= 2
+  if (a.includes(b) || b.includes(a)) return true
+  const aw = a.split(' ')
+  const bw = b.split(' ')
+  const hits = bw.filter((w) => w.length > 1 && aw.some((x) => x.includes(w) || w.includes(x)))
+  return hits.length >= Math.max(1, Math.ceil(bw.length / 2))
+}
+
 export function LearningRoom({
   daf,
   voiceId,
@@ -79,6 +102,7 @@ export function LearningRoom({
   const [micMuted, setMicMuted] = useState(false)
   const [micListening, setMicListening] = useState(false)
   const [needsGesture, setNeedsGesture] = useState(false)
+  const [phase, setPhase] = useState<DrillPhase>('idle')
   const [highlights, setHighlights] = useState<ActiveHighlights | null>(null)
   const [micAvailable] = useState(() => micSupported())
   const messagesRef = useRef<ChatMessage[]>([])
@@ -89,7 +113,11 @@ export function LearningRoom({
   const busyRef = useRef(false)
   const micRef = useRef<StudentMic | null>(null)
   const micMutedRef = useRef(false)
-  const lastReplyRef = useRef('')
+  const welcomedRef = useRef(false)
+  const pendingExplainRef = useRef('')
+  const repeatTargetRef = useRef('')
+  const phaseRef = useRef<DrillPhase>('idle')
+  const lastLessonRef = useRef<RebbeResponse | null>(null)
   const walkStopRef = useRef<(() => void) | null>(null)
   const marksRef = useRef<TextHighlight[]>([])
 
@@ -111,6 +139,9 @@ export function LearningRoom({
   useEffect(() => {
     micMutedRef.current = micMuted
   }, [micMuted])
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
 
   function clearWalk() {
     walkStopRef.current?.()
@@ -126,12 +157,15 @@ export function LearningRoom({
     [],
   )
 
-  function applyMarks(marks: TextHighlight[]) {
+  function applyMarks(marks: TextHighlight[], preferHebrew = '') {
     const line = pageRef.current?.hebrew[lineRef.current] || ''
+    const seed = preferHebrew
+      ? [{ word: preferHebrew.split(/\s+/)[0] || preferHebrew, kind: 'term' as const }]
+      : []
     const merged =
       marks.length > 0
         ? marks
-        : fallbackHighlights(line, HIGHLIGHT_TERM_HINTS)
+        : [...seed, ...fallbackHighlights(line, HIGHLIGHT_TERM_HINTS)].slice(0, 4)
     marksRef.current = merged
     setHighlights({ readingIndex: null, marks: merged })
   }
@@ -178,22 +212,43 @@ export function LearningRoom({
       setNeedsGesture(true)
       setError(friendlyError(err))
       if (!micMutedRef.current) micRef.current?.resume()
+      throw err
     }
   }
 
-  async function speakText(text: string, requestId: number) {
-    lastReplyRef.current = text
+  async function speakUtterance(
+    text: string,
+    opts?: { hebrew?: boolean; audio?: SpeakPayload | null },
+  ) {
+    if (!text.trim()) return
+    setSpeaking(true)
+    micRef.current?.pause()
     try {
-      const audio = await speakAgain(text, voiceRef.current)
-      if (requestId !== requestIdRef.current) return
-      await playAudio(audio)
-    } catch (err) {
-      if (requestId !== requestIdRef.current) return
-      setNeedsGesture(true)
-      setError(friendlyError(err))
+      if (opts?.hebrew) {
+        await playBrowserSpeech(text, {
+          lang: 'he-IL',
+          rate: 0.82,
+          onDuration: (ms) => startReadingWalk(ms),
+        })
+      } else if (opts?.audio) {
+        await playAudio(opts.audio)
+        return
+      } else {
+        const audio = await speakAgain(text, voiceRef.current)
+        await playAudio(audio)
+        return
+      }
       setSpeaking(false)
       clearWalk()
+      setNeedsGesture(false)
       if (!micMutedRef.current) micRef.current?.resume()
+    } catch (err) {
+      setSpeaking(false)
+      clearWalk()
+      setNeedsGesture(true)
+      setError(friendlyError(err))
+      if (!micMutedRef.current) micRef.current?.resume()
+      throw err
     }
   }
 
@@ -209,17 +264,61 @@ export function LearningRoom({
     }
   }
 
+  async function finishExplain(requestId: number) {
+    const explain = pendingExplainRef.current
+    setPhase('idle')
+    if (!explain) return
+    if (requestId !== requestIdRef.current) return
+    await speakUtterance(explain)
+  }
+
+  async function runDrill(lesson: RebbeResponse, requestId: number) {
+    lastLessonRef.current = lesson
+    applyMarks(lesson.highlights, lesson.hebrew)
+
+    if (lesson.welcome && !welcomedRef.current) {
+      welcomedRef.current = true
+      await speakUtterance(lesson.welcome)
+      if (requestId !== requestIdRef.current) return
+    }
+
+    if (lesson.hebrew) {
+      await speakUtterance(lesson.hebrew, { hebrew: true })
+      if (requestId !== requestIdRef.current) return
+    }
+
+    if (lesson.english) {
+      await speakUtterance(`That means: ${lesson.english}`)
+      if (requestId !== requestIdRef.current) return
+    }
+
+    pendingExplainRef.current = lesson.explain || lesson.reply || ''
+    repeatTargetRef.current = lesson.hebrew || lesson.english || ''
+
+    if (repeatTargetRef.current) {
+      await speakUtterance('Now you say it.')
+      if (requestId !== requestIdRef.current) return
+      setPhase('listening-repeat')
+      micRef.current?.setLang(looksHebrew(repeatTargetRef.current) ? 'he-IL' : 'en-US')
+      if (!micMutedRef.current) micRef.current?.resume()
+      return
+    }
+
+    await finishExplain(requestId)
+  }
+
   async function teachCurrentLine() {
     const ctx = currentContext()
     if (!ctx) return
     const id = ++requestIdRef.current
     setBusy(true)
     setError(null)
+    setPhase('idle')
     setMessages([])
     stopSpeaking()
     clearWalk()
     try {
-      const { reply, highlights: marks } = await askRebbe({
+      const lesson = await askRebbe({
         messages: [],
         gemaraRef: ctx.current.ref,
         hebrewLine: ctx.current.hebrew[ctx.idx] || '',
@@ -229,12 +328,16 @@ export function LearningRoom({
         voice: voiceRef.current,
         rashiForLine: ctx.rashiForLine,
         tosafotForLine: ctx.tosafotForLine,
+        needWelcome: !welcomedRef.current,
+        includeSpeech: false,
       })
       if (id !== requestIdRef.current) return
-      applyMarks(marks)
-      setMessages([{ role: 'model', content: reply }])
+      const summary = [lesson.hebrew, lesson.english, lesson.explain]
+        .filter(Boolean)
+        .join(' — ')
+      setMessages([{ role: 'model', content: summary || lesson.reply }])
       setBusy(false)
-      await speakText(reply, id)
+      await runDrill(lesson, id)
     } catch (err) {
       if (id !== requestIdRef.current) return
       setError(friendlyError(err))
@@ -249,12 +352,13 @@ export function LearningRoom({
     const id = ++requestIdRef.current
     setBusy(true)
     setError(null)
+    setPhase('idle')
     stopSpeaking()
     clearWalk()
     setSpeaking(false)
     try {
       const prior = messagesRef.current
-      const { reply, highlights: marks } = await askRebbe({
+      const lesson = await askRebbe({
         messages: prior,
         gemaraRef: ctx.current.ref,
         hebrewLine: ctx.current.hebrew[ctx.idx] || '',
@@ -265,20 +369,37 @@ export function LearningRoom({
         voice: voiceRef.current,
         rashiForLine: ctx.rashiForLine,
         tosafotForLine: ctx.tosafotForLine,
+        needWelcome: false,
+        includeSpeech: mode === 'ask',
       })
       if (id !== requestIdRef.current) return
-      applyMarks(marks)
+
+      const spoken =
+        mode === 'ask'
+          ? lesson.reply || lesson.explain
+          : [lesson.hebrew, lesson.english, lesson.explain]
+              .filter(Boolean)
+              .join(' — ')
+
       const next: ChatMessage[] =
         mode === 'ask' && q
           ? [
               ...prior,
               { role: 'user', content: q },
-              { role: 'model', content: reply },
+              { role: 'model', content: spoken || lesson.reply },
             ]
-          : [...prior, { role: 'model', content: reply }]
+          : [...prior, { role: 'model', content: spoken || lesson.reply }]
       setMessages(next)
       setBusy(false)
-      await speakText(reply, id)
+
+      if (mode === 'ask') {
+        applyMarks(lesson.highlights)
+        if (lesson.audio) await playAudio(lesson.audio)
+        else await speakUtterance(lesson.reply || lesson.explain || '')
+        return
+      }
+
+      await runDrill(lesson, id)
     } catch (err) {
       if (id !== requestIdRef.current) return
       setError(friendlyError(err))
@@ -290,6 +411,15 @@ export function LearningRoom({
   function handleSpokenQuestion(raw: string) {
     let text = raw.trim()
     if (!text) return
+
+    if (phaseRef.current === 'listening-repeat') {
+      if (roughlyMatches(text, repeatTargetRef.current) || text.length > 1) {
+        const id = requestIdRef.current
+        void finishExplain(id)
+      }
+      return
+    }
+
     text = text.replace(/^(hey\s+)?rebbe[,:]?\s+/i, '').trim()
     text = text.replace(/^רבי[,:]?\s+/u, '').trim()
     if (text.length < 2) return
@@ -319,6 +449,7 @@ export function LearningRoom({
     setPageError(null)
     setMessages([])
     setHighlights(null)
+    setPhase('idle')
     fetchGemaraPage(daf)
       .then((data) => {
         if (cancelled) return
@@ -353,6 +484,7 @@ export function LearningRoom({
     stopSpeaking()
     clearWalk()
     setSpeaking(false)
+    setPhase('idle')
     setLineIndex(nextIndex)
     lineRef.current = nextIndex
     void teachCurrentLine()
@@ -371,11 +503,10 @@ export function LearningRoom({
     try {
       await unlockAudio()
       setNeedsGesture(false)
-      const text = lastReplyRef.current
-      if (text) {
+      const lesson = lastLessonRef.current
+      if (lesson?.hebrew || lesson?.english) {
         setBusy(true)
-        const audio = await speakAgain(text, voiceRef.current)
-        await playAudio(audio)
+        await runDrill(lesson, requestIdRef.current)
         setBusy(false)
         return
       }
@@ -391,13 +522,15 @@ export function LearningRoom({
     ? 'Speaking'
     : busy
       ? 'Preparing'
-      : needsGesture
-        ? 'Tap Replay to hear'
-        : micMuted
-          ? 'Muted'
-          : micListening
-            ? 'Listening'
-            : 'Ready'
+      : phase === 'listening-repeat'
+        ? 'Your turn — say it'
+        : needsGesture
+          ? 'Tap Replay to hear'
+          : micMuted
+            ? 'Muted'
+            : micListening
+              ? 'Listening'
+              : 'Ready'
 
   return (
     <div className="shell room">
@@ -467,7 +600,7 @@ export function LearningRoom({
 
           <section className="talk-pane talk-voice">
             <div
-              className={`speaker-orb${speaking ? ' on' : ''}${busy && !speaking ? ' wait' : ''}`}
+              className={`speaker-orb${speaking ? ' on' : ''}${busy && !speaking ? ' wait' : ''}${phase === 'listening-repeat' ? ' wait' : ''}`}
               aria-hidden
             >
               <span />
@@ -484,6 +617,15 @@ export function LearningRoom({
               >
                 Replay
               </button>
+              {phase === 'listening-repeat' && (
+                <button
+                  type="button"
+                  className="btn-main"
+                  onClick={() => void finishExplain(requestIdRef.current)}
+                >
+                  I said it
+                </button>
+              )}
               <button
                 type="button"
                 className={`mic-btn${micMuted ? ' off' : ''}${micListening && !micMuted ? ' live' : ''}`}
@@ -493,7 +635,7 @@ export function LearningRoom({
               </button>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || phase === 'listening-repeat'}
                 onClick={() => void runFollowUp('continue')}
               >
                 Continue

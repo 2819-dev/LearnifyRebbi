@@ -18,7 +18,7 @@ const STEPS = [
   },
   {
     title: 'Your voice',
-    body: 'Speak when you have a question. Mute when you need quiet. Use Continue when you are ready for the next piece, or Replay if sound did not start.',
+    body: 'The Rebbe says a short Hebrew phrase, then the English. You repeat it. Then he explains. Mute when you need quiet — use Continue for the next piece, or Replay if sound did not start.',
   },
 ] as const
 

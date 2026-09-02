@@ -37,6 +37,18 @@ app.use('/api/*', cors())
 app.get('/api/health', (c) => c.json({ ok: true, name: 'Guide' }))
 app.get('/api/voices', (c) => c.json({ voices: REBBE_VOICES }))
 
+function lessonResponse(lesson, audio = null) {
+  return {
+    reply: lesson.speech || lesson.explain || '',
+    welcome: lesson.welcome || '',
+    hebrew: lesson.hebrew || '',
+    english: lesson.english || '',
+    explain: lesson.explain || '',
+    highlights: lesson.highlights || [],
+    audio,
+  }
+}
+
 app.post('/api/rebbe', async (c) => {
   let body
   try {
@@ -52,7 +64,14 @@ app.post('/api/rebbe', async (c) => {
     }
 
     const lesson = await generateRebbeReply(body)
-    return c.json({ reply: lesson.speech, highlights: lesson.highlights })
+    let audio = null
+    if (body?.includeSpeech !== false && !lesson.hebrew) {
+      const firstText = lesson.welcome || lesson.speech || lesson.explain || ''
+      if (firstText) {
+        audio = await synthesizeRebbeSpeech(firstText, body.voice)
+      }
+    }
+    return c.json(lessonResponse(lesson, audio))
   } catch (err) {
     console.error(err)
     return c.json(
