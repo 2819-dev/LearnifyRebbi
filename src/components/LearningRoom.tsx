@@ -404,8 +404,7 @@ export function LearningRoom({
 
       if (mode === 'ask') {
         applyMarks(lesson.highlights)
-        if (lesson.audio) await playAudio(lesson.audio)
-        else await speakUtterance(lesson.reply || lesson.explain || '')
+        await speakUtterance(lesson.reply || lesson.explain || '')
         return
       }
 
