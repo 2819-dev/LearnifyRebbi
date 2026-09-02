@@ -1,0 +1,53 @@
+{
+  "title": "Hashavas Aveidah — Returning Lost Objects",
+  "masechta": "Bava Metzia",
+  "perek": "Eilu Metziot",
+  "defaultDaf": "21a",
+  "defaultSegment": 6,
+  "overview": "This perek teaches when a finder may keep a lost item and when he must announce it and return it. The big ideas are siman (an identifying mark) and ye'ush (the owner giving up hope).",
+  "concepts": [
+    {
+      "term": "Hashavas aveidah",
+      "kidExplanation": "The mitzvah to return a lost object to its owner. It is a real mitzvah from the Torah — helping someone get their thing back."
+    },
+    {
+      "term": "Siman",
+      "kidExplanation": "An identifying mark — something special about the item that proves it belongs to a certain person (like a name tag, a unique scratch, or a special knot)."
+    },
+    {
+      "term": "Ye'ush",
+      "kidExplanation": "When the owner gives up hope of getting the item back. If there was ye'ush before the finder picked it up (in the classic cases), the finder may often keep it."
+    },
+    {
+      "term": "Hefker",
+      "kidExplanation": "Ownerless. Sometimes after ye'ush, the item becomes like hefker and the finder can take it."
+    },
+    {
+      "term": "Eilu metziot shelo",
+      "kidExplanation": "These found things belong to him — the mishna's list of finds the finder may keep, usually because they have no siman and the owner likely gave up."
+    },
+    {
+      "term": "Chayav lehakriz",
+      "kidExplanation": "He must announce the find — tell people he found something so the owner can describe a siman and get it back."
+    }
+  ],
+  "halachaAnchors": [
+    "Core sugya begins with the Mishna on Bava Metzia 21a: which finds the finder keeps, and which he must announce.",
+    "Scattered produce / scattered coins are classic examples of finds that may belong to the finder when there is no siman and we assume ye'ush.",
+    "If an item has a siman, the finder generally must announce it so the owner can reclaim it.",
+    "Rambam, Hilchot Gezeilah va'Aveidah, and Shulchan Aruch Choshen Mishpat (around simanim 259–271) organize these rules for practical learning — teach as concepts, not courtroom psak.",
+    "Modern real-life cases (wallets, phones, schoolyards) need a posek; the Rebbe teaches the Gemara ideas only."
+  ],
+  "teachingTips": [
+    "Start the perek at the Mishna 'Eilu metziot' on 21a (not the leftover simpon discussion at the top of the amud).",
+    "Use kid examples: a dollar on the sidewalk vs a labeled water bottle vs a phone with a lock screen photo.",
+    "Keep asking: Does it have a siman? Did the owner probably give up? Should we announce?",
+    "Praise careful thinking more than speed."
+  ],
+  "suggestedPath": [
+    { "daf": "21a", "label": "Mishna — which finds are yours?" },
+    { "daf": "21a", "label": "Scattered produce & coins" },
+    { "daf": "21b", "label": "Why scattered coins — checking one's money" },
+    { "daf": "22a", "label": "More cases of ye'ush and siman" }
+  ]
+}
