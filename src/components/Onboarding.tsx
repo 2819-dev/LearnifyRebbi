@@ -20,6 +20,10 @@ const STEPS = [
     title: 'Speak or type',
     body: 'Choose Speak if you want the Rebbe to talk out loud. Choose Text if you would rather type, like a chat.',
   },
+  {
+    title: 'Guide or Rebbi',
+    body: 'Learn with Guide for the AI Rebbe on the amud, or Learn with Rebbi to request a real-life rabbi when one is available.',
+  },
 ] as const
 
 type Props = {
