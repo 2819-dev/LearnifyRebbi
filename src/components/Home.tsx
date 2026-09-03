@@ -20,6 +20,7 @@ type Props = {
   account?: Account | null
   onSignIn?: () => void
   onRegisterRabbi?: () => void
+  onOpenPendingApplication?: () => void
   onSignOut?: () => void
   onOpenAdmin?: () => void
   onOpenTesting?: () => void
@@ -34,6 +35,7 @@ export function Home({
   account,
   onSignIn,
   onRegisterRabbi,
+  onOpenPendingApplication,
   onSignOut,
   onOpenAdmin,
   onOpenTesting,
@@ -76,7 +78,7 @@ export function Home({
                   className="linkish tiny"
                   onClick={onOpenRabbiPanel}
                 >
-                  Rabbi panel
+                  Rebbi panel
                 </button>
               )}
               {(account.role === 'admin' || account.role === 'tester') &&
@@ -108,7 +110,7 @@ export function Home({
                   className="linkish tiny"
                   onClick={onRegisterRabbi}
                 >
-                  Register as Rabbi
+                  Register as Rebbi
                 </button>
               )}
             </>
@@ -123,13 +125,24 @@ export function Home({
         <p className="brand">{APP_NAME}</p>
         <p className="lede">
           A Rebbe beside the page. Learn with Guide, or request a real-life
-          rabbi when one is available.
+          Rebbi when one is available.
         </p>
 
         {pendingRabbi && (
-          <p className="soft path-note">
-            Your rabbi application is pending admin approval.
-          </p>
+          <div className="pending-banner">
+            <p className="soft path-note">
+              Your Rebbi application is pending admin approval.
+            </p>
+            {onOpenPendingApplication && (
+              <button
+                type="button"
+                className="linkish tiny"
+                onClick={onOpenPendingApplication}
+              >
+                View application status
+              </button>
+            )}
+          </div>
         )}
 
         <form
@@ -226,7 +239,7 @@ export function Home({
 
           {learnPath === 'rebbe' && (
             <p className="soft path-note">
-              Next you can request an available rabbi, or leave a message if
+              Next you can request an available Rebbi, or leave a message if
               none are free.
             </p>
           )}

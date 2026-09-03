@@ -1,16 +1,6 @@
 import { query } from './db.ts'
 import { httpError } from './http.ts'
 import { normalizePhone } from './crypto.ts'
-import type {
-  AccountRole,
-  AccountRow,
-  PublicAccount,
-  PublicLearningRequest,
-  PublicRabbiApplication,
-  PublicRabbiMessage,
-  PublicRabbiProfile,
-  PublicTicket,
-} from './account-core.ts'
 import {
   ACCOUNT_COLS,
   accountFromToken,
@@ -20,9 +10,17 @@ import {
   publicLearningRequest,
   publicRabbiMessage,
   publicTicket,
+  PublicAccount,
+  PublicLearningRequest,
+  PublicRabbiApplication,
+  PublicRabbiMessage,
+  PublicRabbiProfile,
+  PublicTicket,
   rabbiStatusOf,
   requireApprovedRabbi,
   requireRole,
+  AccountRow,
+  AccountRole,
 } from './account-core.ts'
 
 export async function listPendingRabbis(token: string) {
@@ -59,7 +57,7 @@ export async function reviewRabbi(
      returning ${ACCOUNT_COLS}`,
     [next, String(accountId)],
   )
-  if (!rows[0]) throw httpError('Pending rabbi application not found', 404)
+  if (!rows[0]) throw httpError('Pending Rebbi application not found', 404)
   return publicAccount(rows[0])
 }
 
@@ -87,9 +85,9 @@ export async function listAvailableRabbis() {
 
 export async function createLearningRequest(token: string, messageRaw: unknown) {
   const account = await accountFromToken(token)
-  if (!account) throw httpError('Please sign in to request a rabbi', 401)
+  if (!account) throw httpError('Please sign in to request a Rebbi', 401)
   if (account.role === 'rabbi' && account.rabbiStatus === 'approved') {
-    throw httpError('Rabbis cannot request learning from other rabbis here', 400)
+    throw httpError('Rebbeim cannot request learning from other rebbeim here', 400)
   }
 
   const available = await listAvailableRabbis()
@@ -98,7 +96,7 @@ export async function createLearningRequest(token: string, messageRaw: unknown) 
   }
 
   const message = String(messageRaw || '').trim().slice(0, 2000)
-  if (message.length < 3) throw httpError('Write a short note for the rabbi', 400)
+  if (message.length < 3) throw httpError('Write a short note for the Rebbi', 400)
 
   const rows = await query(
     `insert into guide.learning_requests (student_id, message, status)

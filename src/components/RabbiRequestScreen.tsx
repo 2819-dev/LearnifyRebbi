@@ -25,11 +25,11 @@ export function RabbiRequestScreen({
   const [rabbis, setRabbis] = useState<RabbiProfile[] | null>(null)
   const [requests, setRequests] = useState<LearningRequest[]>([])
   const [message, setMessage] = useState(
-    'I would like to learn Hashavas Aveidah with a real rabbi.',
+    'I would like to learn Hashavas Aveidah with a real Rebbi.',
   )
   const [waitName, setWaitName] = useState(account.username)
   const [waitMessage, setWaitMessage] = useState(
-    'Please let me know when a rabbi is available to learn with.',
+    'Please let me know when a Rebbi is available to learn with.',
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +46,7 @@ export function RabbiRequestScreen({
       setRabbis(list)
       setRequests(mine)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load rabbis')
+      setError(err instanceof Error ? err.message : 'Could not load rebbeim')
       setRabbis([])
     } finally {
       setBusy(false)
@@ -61,30 +61,32 @@ export function RabbiRequestScreen({
 
   return (
     <div className="shell home-shell">
-      <main className="home auth-home">
-        <button type="button" className="linkish tiny" onClick={onBack}>
+      <div className="home-atmosphere" aria-hidden>
+        <span>גמ׳</span>
+      </div>
+      <main className="home auth-home auth-home-wide rebbe-request-home">
+        <button type="button" className="linkish tiny auth-back" onClick={onBack}>
           ← Back to {APP_NAME}
         </button>
         <p className="brand">{APP_NAME}</p>
         <h1>Learn with Rebbi</h1>
         <p className="lede">
-          Request a real-life rabbi. If none are free right now, leave a message
+          Request a real-life Rebbi. If none are free right now, leave a message
           or learn with Guide.
         </p>
 
-        {error && <p className="bad">{error}</p>}
-        {notice && <p className="soft">{notice}</p>}
+        {error && <p className="bad auth-error">{error}</p>}
+        {notice && <p className="soft notice-banner">{notice}</p>}
         {busy && rabbis === null && <p className="soft">Checking availability…</p>}
 
         {rabbis && !available && (
-          <section className="panel-card path-card">
+          <section className="submitted-card path-card">
             <h2>No rebbeim are available</h2>
             <p className="lede panel-lede">
-              You can leave a note for rebbeim (visible in the admin console),
-              or start with Guide now.
+              Leave a note for rebbeim, or start with Guide now.
             </p>
             <form
-              className="setup"
+              className="inline-form"
               onSubmit={async (e) => {
                 e.preventDefault()
                 setBusy(true)
@@ -139,8 +141,12 @@ export function RabbiRequestScreen({
         )}
 
         {rabbis && available && (
-          <section className="panel-card path-card">
-            <h2>{rabbis.length} rabbi{rabbis.length === 1 ? '' : 's'} available</h2>
+          <section className="submitted-card path-card">
+            <h2>
+              {rabbis.length === 1
+                ? '1 Rebbi available'
+                : `${rabbis.length} rebbeim available`}
+            </h2>
             <ul className="rabbi-available-list">
               {rabbis.map((r) => (
                 <li key={r.id}>
@@ -150,7 +156,7 @@ export function RabbiRequestScreen({
               ))}
             </ul>
             <form
-              className="setup"
+              className="inline-form"
               onSubmit={async (e) => {
                 e.preventDefault()
                 setBusy(true)
@@ -159,7 +165,7 @@ export function RabbiRequestScreen({
                 try {
                   const request = await createLearningRequest(message)
                   setRequests((prev) => [request, ...prev])
-                  setNotice('Request sent. A rabbi can claim it from their panel.')
+                  setNotice('Request sent. A Rebbi can claim it from their panel.')
                 } catch (err) {
                   const text =
                     err instanceof Error ? err.message : 'Could not send request'
@@ -173,7 +179,7 @@ export function RabbiRequestScreen({
               }}
             >
               <label className="full">
-                <span>Note for the rabbi</span>
+                <span>Note for the Rebbi</span>
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -183,7 +189,7 @@ export function RabbiRequestScreen({
                 />
               </label>
               <button type="submit" className="btn-main" disabled={busy}>
-                Request a rabbi
+                Request a Rebbi
               </button>
             </form>
             <button
@@ -197,7 +203,7 @@ export function RabbiRequestScreen({
         )}
 
         {requests.length > 0 && (
-          <section className="panel-card path-card">
+          <section className="submitted-card path-card">
             <h2>Your requests</h2>
             <ul className="ticket-list">
               {requests.map((r) => (
@@ -209,7 +215,7 @@ export function RabbiRequestScreen({
                   <p className="soft">
                     {r.rabbiUsername
                       ? `With ${r.rabbiUsername}`
-                      : 'Waiting for a rabbi'}{' '}
+                      : 'Waiting for a Rebbi'}{' '}
                     · {new Date(r.createdAt).toLocaleString()}
                   </p>
                 </li>

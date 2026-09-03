@@ -42,7 +42,7 @@ export function RabbiPanel({ account, onBack }: Props) {
             {APP_NAME}
           </button>
           <p className="panel-sub">
-            Rabbi panel · {account.rabbiDisplayName || account.username}
+            Rebbi panel · {account.rabbiDisplayName || account.username}
           </p>
         </div>
         <div className="panel-actions">
@@ -57,7 +57,7 @@ export function RabbiPanel({ account, onBack }: Props) {
       <section className="panel-card">
         <h2>Student requests</h2>
         <p className="lede panel-lede">
-          Open requests can be claimed by any approved rabbi. Claimed ones stay
+          Open requests can be claimed by any approved Rebbi. Claimed ones stay
           on your list until you close them.
         </p>
         {requests.length === 0 && (

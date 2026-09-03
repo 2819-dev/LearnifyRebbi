@@ -9,18 +9,16 @@ import {
 } from './crypto.ts'
 import { query, setting } from './db.ts'
 import { httpError } from './http.ts'
-import type {
-  AccountRole,
-  AccountRow,
-  PublicAccount,
-} from './account-types.ts'
 import {
   ACCOUNT_COLS,
+  AccountRole,
+  AccountRow,
   cleanAnswers,
   createSession,
   isOwnerPhone,
   isUniqueViolation,
   publicAccount,
+  PublicAccount,
 } from './account-types.ts'
 
 export async function registerAccount(body: Record<string, unknown>) {
@@ -105,10 +103,10 @@ export async function applyAsRabbi(token: string, body: Record<string, unknown>)
   const account = await accountFromToken(token)
   if (!account) throw httpError('Please sign in', 401)
   if (account.role === 'rabbi' || account.rabbiStatus === 'approved') {
-    throw httpError('You are already an approved rabbi', 400)
+    throw httpError('You are already an approved Rebbi', 400)
   }
   if (account.rabbiStatus === 'pending') {
-    throw httpError('Your rabbi application is already pending review', 400)
+    throw httpError('Your Rebbi application is already pending review', 400)
   }
 
   const answers = cleanAnswers(body.answers || body)
@@ -193,7 +191,7 @@ export async function requireApprovedRabbi(token: string) {
   if (!account) throw httpError('Please sign in', 401)
   if (account.role === 'admin') return account
   if (account.role !== 'rabbi' || account.rabbiStatus !== 'approved') {
-    throw httpError('Rabbi access is not approved yet', 403)
+    throw httpError('Rebbi access is not approved yet', 403)
   }
   return account
 }

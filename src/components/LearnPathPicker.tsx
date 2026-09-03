@@ -9,7 +9,7 @@ const OPTIONS: { id: LearnPath; title: string; blurb: string }[] = [
   {
     id: 'rebbe',
     title: 'Learn with Rebbi',
-    blurb: 'Request a real-life rabbi when one is available.',
+    blurb: 'Request a real-life Rebbi when one is available.',
   },
 ]
 

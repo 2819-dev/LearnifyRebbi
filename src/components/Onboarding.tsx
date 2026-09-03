@@ -22,7 +22,7 @@ const STEPS = [
   },
   {
     title: 'Guide or Rebbi',
-    body: 'Learn with Guide for the AI Rebbe on the amud, or Learn with Rebbi to request a real-life rabbi when one is available.',
+    body: 'Learn with Guide for the AI Rebbe on the amud, or Learn with Rebbi to request a real-life Rebbi when one is available.',
   },
 ] as const
 

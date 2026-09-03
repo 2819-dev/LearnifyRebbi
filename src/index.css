@@ -290,24 +290,89 @@ button {
 }
 
 .path-card {
-  margin-top: 0.85rem;
+  margin-top: 1.5rem;
+}
+
+.path-card .panel-lede {
+  margin-bottom: 1rem;
+}
+
+.inline-form {
+  display: grid;
+  gap: 0.95rem;
+  margin-top: 0.35rem;
+}
+
+.inline-form label,
+.inline-form .full {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.inline-form span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--quiet);
+}
+
+.inline-form input,
+.inline-form textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 0.75rem 0.85rem;
+  outline: none;
+  font: inherit;
+  resize: vertical;
+}
+
+.inline-form input:focus,
+.inline-form textarea:focus {
+  border-color: rgba(21, 68, 85, 0.4);
+  box-shadow: 0 0 0 3px rgba(31, 122, 108, 0.14);
+}
+
+.inline-form .btn-main {
+  width: 100%;
+  margin-top: 0.15rem;
+}
+
+.notice-banner {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0.9rem;
+  background: rgba(31, 122, 108, 0.1);
+  border: 1px solid rgba(31, 122, 108, 0.22);
+  border-radius: var(--radius);
+  color: var(--accent);
+}
+
+.rebbe-request-home .auth-error {
+  margin-top: 1rem;
 }
 
 .rabbi-available-list {
   list-style: none;
-  margin: 0 0 1rem;
+  margin: 0.85rem 0 1.15rem;
   padding: 0;
   display: grid;
   gap: 0.65rem;
 }
 
 .rabbi-available-list li {
-  padding: 0.55rem 0;
+  padding: 0.7rem 0;
   border-bottom: 1px solid var(--line);
 }
 
 .rabbi-available-list li:last-child {
   border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.rabbi-available-list .soft {
+  margin: 0.25rem 0 0;
 }
 
 .setup textarea {
@@ -1449,4 +1514,191 @@ button:disabled {
 
 .auth-home .brand {
   font-size: clamp(2.6rem, 8vw, 4rem);
+}
+
+.auth-home {
+  max-width: 28rem;
+  padding: 1.75rem 0 3.5rem;
+  width: 100%;
+}
+
+.auth-home-wide {
+  max-width: 36rem;
+}
+
+.auth-back {
+  margin: 0 0 1.1rem;
+  display: inline-flex;
+}
+
+.auth-setup {
+  margin-top: 1.65rem;
+  padding: 1.5rem 1.4rem 1.35rem;
+  gap: 1.15rem;
+}
+
+.auth-setup-rabbi {
+  gap: 1.45rem;
+}
+
+.auth-section {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.auth-section-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.auth-section + .auth-section {
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--line);
+}
+
+.auth-section-hint {
+  margin: -0.35rem 0 0;
+  color: var(--quiet);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.auth-row-tight {
+  gap: 0.85rem;
+}
+
+.auth-error {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  background: rgba(163, 59, 59, 0.08);
+  border: 1px solid rgba(163, 59, 59, 0.22);
+  border-radius: var(--radius);
+  font-size: 0.92rem;
+}
+
+.auth-footer {
+  display: grid;
+  gap: 0.7rem;
+  padding-top: 0.25rem;
+}
+
+.auth-footer .btn-main {
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+}
+
+.auth-footer .tour-link {
+  justify-self: start;
+  margin-top: 0;
+}
+
+.submitted-home {
+  max-width: 32rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  margin: 1.15rem 0 0;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(184, 90, 58, 0.28);
+  border-radius: var(--radius);
+  background: rgba(184, 90, 58, 0.1);
+  color: #8a3f28;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.submitted-home h1 {
+  margin-top: 0.85rem;
+}
+
+.submitted-card {
+  margin-top: 1.75rem;
+  padding: 1.35rem 1.3rem;
+  background:
+    linear-gradient(180deg, rgba(247, 250, 251, 0.72), transparent 38%),
+    var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 0 var(--edge);
+}
+
+.submitted-card h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.submitted-steps {
+  margin: 0.85rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--quiet);
+  display: grid;
+  gap: 0.55rem;
+  line-height: 1.5;
+}
+
+.submitted-actions {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 0.65rem;
+  max-width: 18rem;
+}
+
+.submitted-actions .btn-main {
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+}
+
+.pending-banner {
+  margin-top: 1.1rem;
+  padding: 0.95rem 1.05rem;
+  background: rgba(21, 68, 85, 0.06);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.pending-banner .path-note {
+  margin: 0;
+}
+
+.pending-banner .linkish.tiny {
+  margin-top: 0;
+  justify-self: start;
+}
+
+.setup textarea:focus {
+  border-color: rgba(21, 68, 85, 0.4);
+  box-shadow: 0 0 0 3px rgba(31, 122, 108, 0.14);
+  outline: none;
+}
+
+@media (max-width: 640px) {
+  .auth-home,
+  .submitted-home {
+    padding-top: 1.25rem;
+  }
+
+  .auth-setup {
+    padding: 1.2rem 1.05rem 1.15rem;
+  }
+
+  .auth-row-tight {
+    grid-template-columns: 1fr;
+  }
+
+  .submitted-actions {
+    max-width: none;
+  }
 }

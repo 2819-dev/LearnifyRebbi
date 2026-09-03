@@ -90,14 +90,14 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
           className={tab === 'rabbis' ? 'on' : ''}
           onClick={() => setTab('rabbis')}
         >
-          Rabbi approvals
+          Rebbi approvals
         </button>
         <button
           type="button"
           className={tab === 'messages' ? 'on' : ''}
           onClick={() => setTab('messages')}
         >
-          Rabbi waitlist
+          Rebbi waitlist
         </button>
         <button
           type="button"
@@ -150,9 +150,9 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
 
       {tab === 'rabbis' && (
         <section className="panel-card">
-          <h2>Pending rabbi applications</h2>
+          <h2>Pending Rebbi applications</h2>
           <p className="lede panel-lede">
-            Approve to grant the rabbi panel. Reject keeps them as a student.
+            Approve to grant the Rebbi panel. Reject keeps them as a student.
           </p>
           {applications.length === 0 && (
             <p className="soft">No pending applications.</p>
@@ -226,7 +226,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
         <section className="panel-card">
           <h2>Messages for rebbeim</h2>
           <p className="lede panel-lede">
-            Left by students when no approved rabbis were available.
+            Left by students when no approved rebbeim were available.
           </p>
           {messages.length === 0 && <p className="soft">No waitlist messages.</p>}
           <ul className="ticket-list">
@@ -265,7 +265,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
         <section className="panel-card">
           <h2>Who can access what</h2>
           <p className="lede panel-lede">
-            Admin = console. Tester = AI training. Rabbi = student request panel.
+            Admin = console. Tester = AI training. Rebbi = student request panel.
           </p>
           <ul className="user-list">
             {users.map((u) => (
@@ -275,7 +275,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
                   <p className="soft">
                     {u.role}
                     {u.rabbiStatus && u.rabbiStatus !== 'none'
-                      ? ` · rabbi ${u.rabbiStatus}`
+                      ? ` · Rebbi ${u.rabbiStatus}`
                       : ''}
                   </p>
                 </div>
@@ -292,7 +292,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
                 >
                   <option value="user">Student</option>
                   <option value="tester">Tester</option>
-                  <option value="rabbi">Rabbi</option>
+                  <option value="rabbi">Rebbi</option>
                   <option value="admin">Admin</option>
                 </select>
               </li>
