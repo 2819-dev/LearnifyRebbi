@@ -63,7 +63,7 @@ export function Home({
         <span>גמ׳</span>
       </div>
       <main className="home">
-        <div className="home-top-links">
+        <nav className="home-nav" aria-label="Account">
           {account ? (
             <>
               <span className="soft">Hi, {account.username}</span>
@@ -120,13 +120,15 @@ export function Home({
               Support
             </button>
           )}
-        </div>
+        </nav>
 
-        <p className="brand">{APP_NAME}</p>
-        <p className="lede">
-          A Rebbi beside the page. Learn with Guide, or request a real-life
-          Rebbi when one is available.
-        </p>
+        <header className="home-hero">
+          <p className="brand">{APP_NAME}</p>
+          <p className="lede">
+            A Rebbi beside the page — learn on the amud with Guide, or request
+            a real-life Rebbi.
+          </p>
+        </header>
 
         {pendingRabbi && (
           <div className="pending-banner">
@@ -244,7 +246,7 @@ export function Home({
             </p>
           )}
 
-          {error && <p className="bad">{error}</p>}
+          {error && <p className="bad auth-error">{error}</p>}
 
           <button type="submit" className="btn-main" disabled={starting}>
             {starting

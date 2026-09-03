@@ -4,12 +4,12 @@ const OPTIONS: { id: TalkMode; title: string; blurb: string }[] = [
   {
     id: 'voice',
     title: 'Speak',
-    blurb: 'The Rebbi talks. You answer out loud.',
+    blurb: 'Talk out loud together.',
   },
   {
     id: 'text',
     title: 'Text',
-    blurb: 'Type back and forth, like a chat.',
+    blurb: 'Type back and forth.',
   },
 ]
 
