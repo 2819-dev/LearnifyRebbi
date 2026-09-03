@@ -1,6 +1,6 @@
 # Guide
 
-Learn Gemara with a Rebbe beside you.
+Learn Gemara with a Rebbi beside you.
 
 Open the page. Follow the words. Ask when you need to.
 

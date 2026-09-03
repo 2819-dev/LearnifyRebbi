@@ -47,11 +47,23 @@ function viewFromPath(): View {
   const path = window.location.pathname.replace(/\/+$/, '') || '/'
   if (path === '/admin') return 'admin'
   if (path === '/test' || path === '/testing') return 'testing'
-  if (path === '/rebbe' || path === '/rabbi') return 'rabbi'
-  if (path === '/learn-with-rebbe') return 'rebbe-request'
-  if (path === '/register-rebbe' || path === '/register-rabbi') return 'auth-rabbi'
+  if (path === '/rebbi' || path === '/rebbe' || path === '/rabbi') return 'rabbi'
+  if (
+    path === '/learn-with-rebbi' ||
+    path === '/learn-with-rebbe'
+  ) {
+    return 'rebbe-request'
+  }
+  if (
+    path === '/register-rebbi' ||
+    path === '/register-rebbe' ||
+    path === '/register-rabbi'
+  ) {
+    return 'auth-rabbi'
+  }
   if (
     path === '/application-submitted' ||
+    path === '/rebbi-pending' ||
     path === '/rebbe-pending' ||
     path === '/rabbi-pending'
   ) {
@@ -79,13 +91,13 @@ export default function App() {
         : next === 'testing'
           ? '/test'
           : next === 'rabbi'
-            ? '/rebbe'
+            ? '/rebbi'
             : next === 'rebbe-request'
-              ? '/learn-with-rebbe'
+              ? '/learn-with-rebbi'
               : next === 'rebbe-pending'
                 ? '/application-submitted'
                 : next === 'auth-rabbi'
-                  ? '/register-rebbe'
+                  ? '/register-rebbi'
                   : next === 'auth'
                     ? '/login'
                     : '/'

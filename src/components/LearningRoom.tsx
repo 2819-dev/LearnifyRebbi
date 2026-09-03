@@ -344,7 +344,7 @@ export function LearningRoom({
       await speakUtterance('Now you say it.')
       if (requestId !== requestIdRef.current) return
       setPhase('listening-repeat')
-      // Open mic only for the repeat — keeps iPhone out of call mode while Rebbe speaks.
+      // Open mic only for the repeat — keeps iPhone out of call mode while Rebbi speaks.
       startMic(true)
       return
     }
@@ -521,7 +521,7 @@ export function LearningRoom({
       return
     }
 
-    text = text.replace(/^(hey\s+)?rebbe[,:]?\s+/i, '').trim()
+    text = text.replace(/^(hey\s+)?(rebbe|rebbi)[,:]?\s+/i, '').trim()
     text = text.replace(/^רבי[,:]?\s+/u, '').trim()
     if (text.length < 2) return
     if (busyRef.current) return

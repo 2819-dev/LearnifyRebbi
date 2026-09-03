@@ -1,7 +1,7 @@
 {
   "name": "Guide",
   "short_name": "Guide",
-  "description": "Learn Gemara with a Rebbe beside you.",
+  "description": "Learn Gemara with a Rebbi beside you.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -5,7 +5,7 @@
 [build.environment]
   NODE_VERSION = "22"
 
-# Static SPA only. Account + Rebbe APIs live on Supabase Edge Functions.
+# Static SPA only. Account + Rebbi APIs live on Supabase Edge Functions.
 [[redirects]]
   from = "/*"
   to = "/index.html"

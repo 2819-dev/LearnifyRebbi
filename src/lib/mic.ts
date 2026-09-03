@@ -49,7 +49,7 @@ export function isLikelyIOS(): boolean {
 /**
  * Student mic — on demand only.
  * Continuous listening keeps iPhone in “call” mode (call volume UI + mute chirps)
- * and often silences Rebbe speech. We only open the mic when we truly need it.
+ * and often silences Rebbi speech. We only open the mic when we truly need it.
  */
 export class StudentMic {
   private recognition: RecognitionLike | null = null

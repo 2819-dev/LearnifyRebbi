@@ -1,4 +1,4 @@
--- Rabbi applications, learning requests, and messages when no rabbis are available.
+-- Rebbi applications, learning requests, and messages when no Rebbeim are available.
 
 ALTER TABLE guide.accounts
   DROP CONSTRAINT IF EXISTS guide_accounts_role_check;
