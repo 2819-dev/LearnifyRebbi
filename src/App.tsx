@@ -214,7 +214,7 @@ export default function App() {
     if (isApprovedRabbi(account)) {
       return (
         <div className="shell home-shell">
-          <p className="soft">Opening Rebbi panel…</p>
+          <p className="soft">Opening your teaching desk…</p>
         </div>
       )
     }
@@ -257,9 +257,10 @@ export default function App() {
         <div className="shell home-shell">
           <main className="home auth-home">
             <p className="brand">{APP_NAME}</p>
-            <h1>Rebbi panel</h1>
+            <h1>Teaching desk</h1>
             <p className="lede">
-              An admin needs to approve you as a Rebbi first.
+              Your Rebbi application still needs to be approved before you can
+              take students.
             </p>
             <div className="submitted-actions">
               <button type="button" className="btn-main" onClick={() => go('home')}>

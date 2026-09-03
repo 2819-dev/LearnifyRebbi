@@ -4,7 +4,7 @@ const OPTIONS: { id: TalkMode; title: string; blurb: string }[] = [
   {
     id: 'voice',
     title: 'Speak',
-    blurb: 'The Rebbe talks. You answer out loud.',
+    blurb: 'The Rebbi talks. You answer out loud.',
   },
   {
     id: 'text',
@@ -22,8 +22,8 @@ type Props = {
 export function TalkModePicker({ value, onChange, size = 'lg' }: Props) {
   return (
     <div className={`talk-choice talk-choice-${size}`}>
-      <span>How you talk to the Rebbe</span>
-      <div className="mode-toggle" role="radiogroup" aria-label="How you talk to the Rebbe">
+      <span>How you talk to the Rebbi</span>
+      <div className="mode-toggle" role="radiogroup" aria-label="How you talk to the Rebbi">
         {OPTIONS.map((opt) => (
           <button
             key={opt.id}

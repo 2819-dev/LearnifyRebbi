@@ -64,7 +64,7 @@ function friendlyError(err: unknown): string {
     return 'Please try again in a moment.'
   }
   if (/play|sound|Audio|NotAllowedError/i.test(msg)) {
-    return 'Tap Replay to hear the Rebbe.'
+    return 'Tap Replay to hear the Rebbi.'
   }
   return 'Something went wrong. Please try again.'
 }
@@ -643,7 +643,7 @@ export function LearningRoom({
         ? 'Speaking'
         : busy
           ? 'Preparing'
-          : 'Type to the Rebbe'
+          : 'Type to the Rebbi'
       : speaking
         ? 'Speaking'
         : busy
@@ -768,7 +768,7 @@ export function LearningRoom({
                 <p className="talk-status">{status}</p>
                 <div className="talk-feed" aria-live="polite">
                   {messages.length === 0 && (
-                    <p className="soft">The Rebbe will write here. Ask anything about the line.</p>
+                    <p className="soft">The Rebbi will write here. Ask anything about the line.</p>
                   )}
                   {messages.map((m, i) => (
                     <p
@@ -784,9 +784,9 @@ export function LearningRoom({
                   <input
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    placeholder="Ask the Rebbe…"
+                    placeholder="Ask the Rebbi…"
                     disabled={busy}
-                    aria-label="Message to the Rebbe"
+                    aria-label="Message to the Rebbi"
                   />
                   <button type="submit" className="btn-main" disabled={busy || !draft.trim()}>
                     Send

@@ -87,12 +87,12 @@ export async function createLearningRequest(token: string, messageRaw: unknown) 
   const account = await accountFromToken(token)
   if (!account) throw httpError('Please sign in to request a Rebbi', 401)
   if (account.role === 'rabbi' && account.rabbiStatus === 'approved') {
-    throw httpError('Rebbeim cannot request learning from other rebbeim here', 400)
+    throw httpError('Rebbeim cannot request learning from other Rebbeim here', 400)
   }
 
   const available = await listAvailableRabbis()
   if (available.length === 0) {
-    throw httpError('No rebbeim are available', 409)
+    throw httpError('No Rebbeim are available', 409)
   }
 
   const message = String(messageRaw || '').trim().slice(0, 2000)

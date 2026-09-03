@@ -103,7 +103,7 @@ export class StudentMic {
       if (event.error === 'aborted' || event.error === 'no-speech') return
       if (event.error === 'not-allowed') {
         callbacks.onError?.(
-          'Allow the microphone so you can speak to the Rebbe.',
+          'Allow the microphone so you can speak to the Rebbi.',
         )
         this.wanted = false
       }

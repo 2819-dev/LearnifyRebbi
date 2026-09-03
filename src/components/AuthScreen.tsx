@@ -43,7 +43,7 @@ export function AuthScreen({
     mode === 'login'
       ? 'Sign in'
       : isRabbi
-        ? 'Register as a Rebbi'
+        ? 'Become a Rebbi'
         : 'Create account'
 
   return (
@@ -59,7 +59,7 @@ export function AuthScreen({
         <h1>{title}</h1>
         <p className="lede">
           {isRabbi
-            ? 'Tell us about your teaching. An admin must approve you before the Rebbi panel opens.'
+            ? 'Share a little about how you teach. We review every application before you begin with students.'
             : 'Username, phone number, and password — no email needed.'}
         </p>
 
@@ -136,9 +136,9 @@ export function AuthScreen({
 
           {isRabbi && (
             <section className="auth-section">
-              <h2 className="auth-section-title">Teaching questionnaire</h2>
+              <h2 className="auth-section-title">About your teaching</h2>
               <p className="auth-section-hint">
-                Short answers help admins match you with the right students.
+                A few short answers help us place you with the right students.
               </p>
               <label className="full">
                 <span>Name students should use</span>
@@ -234,7 +234,7 @@ export function AuthScreen({
                 : mode === 'login'
                   ? 'Sign in'
                   : isRabbi
-                    ? 'Submit for approval'
+                    ? 'Submit application'
                     : 'Create account'}
             </button>
             <button
@@ -258,7 +258,7 @@ export function AuthScreen({
                   setError(null)
                 }}
               >
-                Register as a Rebbi
+                Become a Rebbi
               </button>
             ) : (
               <button

@@ -46,7 +46,7 @@ export function RabbiRequestScreen({
       setRabbis(list)
       setRequests(mine)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load rebbeim')
+      setError(err instanceof Error ? err.message : 'Could not load Rebbeim')
       setRabbis([])
     } finally {
       setBusy(false)
@@ -81,9 +81,9 @@ export function RabbiRequestScreen({
 
         {rabbis && !available && (
           <section className="submitted-card path-card">
-            <h2>No rebbeim are available</h2>
+            <h2>No Rebbeim are available</h2>
             <p className="lede panel-lede">
-              Leave a note for rebbeim, or start with Guide now.
+              Leave a note for Rebbeim, or start with Guide now.
             </p>
             <form
               className="inline-form"
@@ -97,7 +97,7 @@ export function RabbiRequestScreen({
                     name: waitName,
                     message: waitMessage,
                   })
-                  setNotice('Message saved. Rebbeim and admins can see it.')
+                  setNotice('Message saved. We will share it with Rebbeim.')
                   setWaitMessage('')
                 } catch (err) {
                   setError(
@@ -117,7 +117,7 @@ export function RabbiRequestScreen({
                 />
               </label>
               <label className="full">
-                <span>Message for rebbeim</span>
+                <span>Message for Rebbeim</span>
                 <textarea
                   value={waitMessage}
                   onChange={(e) => setWaitMessage(e.target.value)}
@@ -145,7 +145,7 @@ export function RabbiRequestScreen({
             <h2>
               {rabbis.length === 1
                 ? '1 Rebbi available'
-                : `${rabbis.length} rebbeim available`}
+                : `${rabbis.length} Rebbeim available`}
             </h2>
             <ul className="rabbi-available-list">
               {rabbis.map((r) => (
@@ -165,7 +165,7 @@ export function RabbiRequestScreen({
                 try {
                   const request = await createLearningRequest(message)
                   setRequests((prev) => [request, ...prev])
-                  setNotice('Request sent. A Rebbi can claim it from their panel.')
+                  setNotice('Request sent. A Rebbi can pick it up soon.')
                 } catch (err) {
                   const text =
                     err instanceof Error ? err.message : 'Could not send request'

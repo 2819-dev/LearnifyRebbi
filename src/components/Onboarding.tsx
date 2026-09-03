@@ -5,11 +5,11 @@ import { HIGHLIGHT_LEGEND } from '../lib/curriculum'
 const STEPS = [
   {
     title: 'Your Gemara',
-    body: 'The amud opens like a printed Vilna page — large vocalized Gemara in the middle, Rashi and Tosafot wrapping around it. Tap a line to see the English and learn it with the Rebbe.',
+    body: 'The amud opens like a printed Vilna page — large vocalized Gemara in the middle, Rashi and Tosafot wrapping around it. Tap a line to see the English and learn it with the Rebbi.',
   },
   {
     title: 'Follow along',
-    body: 'As the Rebbe teaches, words get marked like a used sefer — underlines and soft circles — so you can see what he is reading.',
+    body: 'As the Rebbi teaches, words get marked like a used sefer — underlines and soft circles — so you can see what he is reading.',
   },
   {
     title: 'Highlight colors',
@@ -18,11 +18,11 @@ const STEPS = [
   },
   {
     title: 'Speak or type',
-    body: 'Choose Speak if you want the Rebbe to talk out loud. Choose Text if you would rather type, like a chat.',
+    body: 'Choose Speak if you want the Rebbi to talk out loud. Choose Text if you would rather type, like a chat.',
   },
   {
     title: 'Guide or Rebbi',
-    body: 'Learn with Guide for the AI Rebbe on the amud, or Learn with Rebbi to request a real-life Rebbi when one is available.',
+    body: 'Learn with Guide for the AI Rebbi on the amud, or Learn with Rebbi to request a real-life Rebbi when one is available.',
   },
 ] as const
 

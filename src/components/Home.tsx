@@ -78,7 +78,7 @@ export function Home({
                   className="linkish tiny"
                   onClick={onOpenRabbiPanel}
                 >
-                  Rebbi panel
+                  Teaching desk
                 </button>
               )}
               {(account.role === 'admin' || account.role === 'tester') &&
@@ -110,7 +110,7 @@ export function Home({
                   className="linkish tiny"
                   onClick={onRegisterRabbi}
                 >
-                  Register as Rebbi
+                  Become a Rebbi
                 </button>
               )}
             </>
@@ -124,14 +124,14 @@ export function Home({
 
         <p className="brand">{APP_NAME}</p>
         <p className="lede">
-          A Rebbe beside the page. Learn with Guide, or request a real-life
+          A Rebbi beside the page. Learn with Guide, or request a real-life
           Rebbi when one is available.
         </p>
 
         {pendingRabbi && (
           <div className="pending-banner">
             <p className="soft path-note">
-              Your Rebbi application is pending admin approval.
+              Your Rebbi application is under review.
             </p>
             {onOpenPendingApplication && (
               <button
@@ -224,7 +224,7 @@ export function Home({
                   <select
                     value={voiceId}
                     onChange={(e) => setVoiceId(e.target.value)}
-                    aria-label="Rebbe voice"
+                    aria-label="Rebbi voice"
                   >
                     {REBBE_VOICES.map((v) => (
                       <option key={v.id} value={v.id}>
@@ -240,7 +240,7 @@ export function Home({
           {learnPath === 'rebbe' && (
             <p className="soft path-note">
               Next you can request an available Rebbi, or leave a message if
-              none are free.
+              none are free right now.
             </p>
           )}
 

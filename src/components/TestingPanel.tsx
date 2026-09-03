@@ -57,7 +57,7 @@ export function TestingPanel({ account, onBack, onOpenAdmin }: Props) {
 
   async function saveCorrection() {
     if (!prompt.trim() || !correction.trim()) {
-      setError('Add a prompt and how the Rebbe should answer.')
+      setError('Add a prompt and how the Rebbi should answer.')
       return
     }
     setBusy(true)
@@ -97,7 +97,7 @@ export function TestingPanel({ account, onBack, onOpenAdmin }: Props) {
       </header>
 
       <section className="panel-card">
-        <h2>Train the Rebbe</h2>
+        <h2>Train the Rebbi</h2>
         <p className="lede panel-lede">
           Ask something a student might ask. See the reply. Then teach how it
           should answer next time.
@@ -134,7 +134,7 @@ export function TestingPanel({ account, onBack, onOpenAdmin }: Props) {
             rows={4}
             value={correction}
             onChange={(e) => setCorrection(e.target.value)}
-            placeholder="Tell the Rebbe how to answer this kind of question."
+            placeholder="Tell the Rebbi how to answer this kind of question."
           />
         </label>
         <button

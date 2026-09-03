@@ -30,7 +30,7 @@ export async function createRabbiWaitMessage(input: {
 }) {
   const account = input.token ? await accountFromToken(input.token) : null
   const message = String(input.message || '').trim().slice(0, 2000)
-  if (message.length < 3) throw httpError('Write a short message for the rebbeim', 400)
+  if (message.length < 3) throw httpError('Write a short message for the Rebbeim', 400)
   const name = String(input.name || account?.username || 'Student').trim().slice(0, 80) || 'Student'
   const rows = await query(
     `insert into guide.rabbi_messages (account_id, name, message, status)

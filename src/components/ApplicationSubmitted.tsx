@@ -22,20 +22,19 @@ export function ApplicationSubmitted({
       <main className="home auth-home submitted-home">
         <p className="brand">{APP_NAME}</p>
         <p className="status-pill" role="status">
-          Pending approval
+          Under review
         </p>
-        <h1>Application submitted</h1>
+        <h1>Application received</h1>
         <p className="lede">
-          Thanks{name ? `, ${name}` : ''}. An admin will review your Rebbi
-          application. You will get access to the Rebbi panel once you are
-          approved.
+          Thanks{name ? `, ${name}` : ''}. We received your Rebbi application
+          and will be in touch when you are approved to teach.
         </p>
 
         <div className="submitted-card">
           <h2>What happens next</h2>
           <ol className="submitted-steps">
-            <li>We review your questionnaire and teaching background.</li>
-            <li>When approved, sign in again to open the Rebbi panel.</li>
+            <li>We read your teaching background and availability.</li>
+            <li>When you are approved, sign in to start taking students.</li>
             <li>Students can then request to learn with you.</li>
           </ol>
         </div>

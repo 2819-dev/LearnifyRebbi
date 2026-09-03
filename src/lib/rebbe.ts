@@ -411,7 +411,7 @@ export async function askRebbe(payload: {
   })
   const data = await res.json()
   if (!res.ok) {
-    throw new Error(data.error || 'Rebbe is unavailable right now.')
+    throw new Error(data.error || 'Rebbi is unavailable right now.')
   }
   return {
     reply: String(data.reply || data.explain || ''),

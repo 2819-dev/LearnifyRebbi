@@ -42,7 +42,7 @@ export function RabbiPanel({ account, onBack }: Props) {
             {APP_NAME}
           </button>
           <p className="panel-sub">
-            Rebbi panel · {account.rabbiDisplayName || account.username}
+            Teaching desk · {account.rabbiDisplayName || account.username}
           </p>
         </div>
         <div className="panel-actions">

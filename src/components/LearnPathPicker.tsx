@@ -4,7 +4,7 @@ const OPTIONS: { id: LearnPath; title: string; blurb: string }[] = [
   {
     id: 'guide',
     title: 'Learn with Guide',
-    blurb: 'Study with the AI Rebbe on the amud.',
+    blurb: 'Study with the AI Rebbi on the amud.',
   },
   {
     id: 'rebbe',
