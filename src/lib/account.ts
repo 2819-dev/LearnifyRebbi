@@ -336,3 +336,33 @@ export function isApprovedRabbi(account: Account | null | undefined) {
       (account.role === 'admin' || account.rabbiStatus === 'approved'),
   )
 }
+
+export function learningRequestStatusLabel(
+  status: LearningRequest['status'],
+): string {
+  if (status === 'open') return 'Waiting'
+  if (status === 'claimed') return 'Matched'
+  return 'Finished'
+}
+
+export function ticketStatusLabel(
+  status: SupportTicket['status'],
+): string {
+  if (status === 'open') return 'New'
+  if (status === 'in_progress') return 'In progress'
+  return 'Resolved'
+}
+
+export function rabbiStatusLabel(status: RabbiStatus): string {
+  if (status === 'pending') return 'Under review'
+  if (status === 'approved') return 'Approved'
+  if (status === 'rejected') return 'Not approved'
+  return ''
+}
+
+export function roleLabel(role: AccountRole): string {
+  if (role === 'admin') return 'Owner'
+  if (role === 'tester') return 'Coach'
+  if (role === 'rabbi') return 'Rebbi'
+  return 'Student'
+}

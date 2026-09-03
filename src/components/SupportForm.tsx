@@ -20,8 +20,10 @@ export function SupportForm({ onClose, defaultName = '', defaultPhone = '' }: Pr
     return (
       <div className="onboard" role="dialog" aria-modal="true">
         <div className="onboard-card">
-          <h2>Ticket sent</h2>
-          <p className="onboard-body">Thanks — an admin can review it soon.</p>
+          <h2>Message received</h2>
+          <p className="onboard-body">
+            Thank you. Our team will get back to you soon.
+          </p>
           <div className="onboard-actions">
             <button type="button" className="btn-main" onClick={onClose}>
               Close
@@ -35,8 +37,10 @@ export function SupportForm({ onClose, defaultName = '', defaultPhone = '' }: Pr
   return (
     <div className="onboard" role="dialog" aria-modal="true" aria-label="Support">
       <div className="onboard-card">
-        <h2>Support</h2>
-        <p className="onboard-body">Send a short note. No email needed.</p>
+        <h2>How can we help?</h2>
+        <p className="onboard-body">
+          Send a short note and we will follow up with you.
+        </p>
         <form
           className="setup"
           onSubmit={async (e) => {
@@ -84,7 +88,7 @@ export function SupportForm({ onClose, defaultName = '', defaultPhone = '' }: Pr
               Cancel
             </button>
             <button type="submit" className="btn-main" disabled={busy}>
-              {busy ? 'Sending…' : 'Send ticket'}
+              {busy ? 'Sending…' : 'Send message'}
             </button>
           </div>
         </form>

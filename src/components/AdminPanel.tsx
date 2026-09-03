@@ -6,8 +6,11 @@ import {
   fetchUsers,
   reviewRabbi,
   setRole,
+  ticketStatusLabel,
   updateRabbiWaitMessage,
   updateTicketStatus,
+  rabbiStatusLabel,
+  roleLabel,
   type Account,
   type AccountRole,
   type RabbiApplication,
@@ -48,7 +51,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
       setApplications(apps)
       setMessages(msgs)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load admin data')
+      setError(err instanceof Error ? err.message : 'Could not load owner tools')
     } finally {
       setBusy(false)
     }
@@ -65,11 +68,11 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
           <button type="button" className="linkish" onClick={onBack}>
             {APP_NAME}
           </button>
-          <p className="panel-sub">Admin · {account.username}</p>
+          <p className="panel-sub">Owner tools · {account.username}</p>
         </div>
         <div className="panel-actions">
           <button type="button" onClick={onOpenTesting}>
-            Testing panel
+            Coaching desk
           </button>
           <button type="button" onClick={() => void refresh()} disabled={busy}>
             Refresh
@@ -83,28 +86,28 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
           className={tab === 'tickets' ? 'on' : ''}
           onClick={() => setTab('tickets')}
         >
-          Support tickets
+          Support
         </button>
         <button
           type="button"
           className={tab === 'rabbis' ? 'on' : ''}
           onClick={() => setTab('rabbis')}
         >
-          Rebbi approvals
+          Rebbi applications
         </button>
         <button
           type="button"
           className={tab === 'messages' ? 'on' : ''}
           onClick={() => setTab('messages')}
         >
-          Rebbi waitlist
+          Waitlist
         </button>
         <button
           type="button"
           className={tab === 'access' ? 'on' : ''}
           onClick={() => setTab('access')}
         >
-          Access
+          People
         </button>
       </div>
 
@@ -112,21 +115,29 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
 
       {tab === 'tickets' && (
         <section className="panel-card">
-          <h2>Support tickets</h2>
-          {tickets.length === 0 && <p className="soft">No tickets yet.</p>}
+          <h2>Support messages</h2>
+          {tickets.length === 0 && <p className="soft">No messages yet.</p>}
           <ul className="ticket-list">
             {tickets.map((t) => (
               <li key={t.id}>
                 <div className="ticket-top">
                   <strong>{t.subject}</strong>
-                  <span className={`ticket-status ${t.status}`}>{t.status}</span>
+                  <span className={`ticket-status ${t.status}`}>
+                    {ticketStatusLabel(t.status)}
+                  </span>
                 </div>
                 <p>{t.body}</p>
                 <p className="soft">
                   {t.name} · {new Date(t.createdAt).toLocaleString()}
                 </p>
                 <div className="ticket-actions">
-                  {(['open', 'in_progress', 'closed'] as const).map((status) => (
+                  {(
+                    [
+                      ['open', 'New'],
+                      ['in_progress', 'In progress'],
+                      ['closed', 'Resolved'],
+                    ] as const
+                  ).map(([status, label]) => (
                     <button
                       key={status}
                       type="button"
@@ -138,7 +149,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
                         )
                       }}
                     >
-                      {status}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -150,21 +161,24 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
 
       {tab === 'rabbis' && (
         <section className="panel-card">
-          <h2>Pending Rebbi applications</h2>
+          <h2>Rebbi applications</h2>
           <p className="lede panel-lede">
-            Approve to let them teach students. Reject keeps them as a learner.
+            Welcome a teacher to start meeting students, or decline gently and
+            leave them as a learner.
           </p>
           {applications.length === 0 && (
-            <p className="soft">No pending applications.</p>
+            <p className="soft">No applications waiting.</p>
           )}
           <ul className="ticket-list">
             {applications.map((app) => (
               <li key={app.id}>
                 <div className="ticket-top">
                   <strong>{app.displayName || app.username}</strong>
-                  <span className="ticket-status open">{app.status}</span>
+                  <span className="ticket-status open">
+                    {rabbiStatusLabel(app.status) || app.status}
+                  </span>
                 </div>
-                <p className="soft">@{app.username}</p>
+                <p className="soft">{app.username}</p>
                 {app.answers.experience && (
                   <p>
                     <strong>Experience:</strong> {app.answers.experience}
@@ -202,7 +216,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
                       setUsers(nextUsers)
                     }}
                   >
-                    Approve
+                    Welcome
                   </button>
                   <button
                     type="button"
@@ -213,7 +227,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
                       )
                     }}
                   >
-                    Reject
+                    Decline
                   </button>
                 </div>
               </li>
@@ -226,20 +240,27 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
         <section className="panel-card">
           <h2>Messages for Rebbeim</h2>
           <p className="lede panel-lede">
-            Left by students when no approved Rebbeim were available.
+            Notes from learners when no Rebbeim were free to teach.
           </p>
-          {messages.length === 0 && <p className="soft">No waitlist messages.</p>}
+          {messages.length === 0 && <p className="soft">No waitlist notes.</p>}
           <ul className="ticket-list">
             {messages.map((m) => (
               <li key={m.id}>
                 <div className="ticket-top">
                   <strong>{m.name}</strong>
-                  <span className={`ticket-status ${m.status}`}>{m.status}</span>
+                  <span className={`ticket-status ${m.status}`}>
+                    {m.status === 'open' ? 'New' : 'Resolved'}
+                  </span>
                 </div>
                 <p>{m.message}</p>
                 <p className="soft">{new Date(m.createdAt).toLocaleString()}</p>
                 <div className="ticket-actions">
-                  {(['open', 'closed'] as const).map((status) => (
+                  {(
+                    [
+                      ['open', 'New'],
+                      ['closed', 'Resolved'],
+                    ] as const
+                  ).map(([status, label]) => (
                     <button
                       key={status}
                       type="button"
@@ -251,7 +272,7 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
                         )
                       }}
                     >
-                      {status}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -263,9 +284,10 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
 
       {tab === 'access' && (
         <section className="panel-card">
-          <h2>Who can access what</h2>
+          <h2>People</h2>
           <p className="lede panel-lede">
-            Admin = console. Tester = AI training. Rebbi = student requests.
+            Owners manage Guide. Coaches improve the AI Rebbi. Rebbeim meet
+            students. Everyone else is a learner.
           </p>
           <ul className="user-list">
             {users.map((u) => (
@@ -273,9 +295,9 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
                 <div>
                   <strong>{u.username}</strong>
                   <p className="soft">
-                    {u.role}
+                    {roleLabel(u.role)}
                     {u.rabbiStatus && u.rabbiStatus !== 'none'
-                      ? ` · Rebbi ${u.rabbiStatus}`
+                      ? ` · ${rabbiStatusLabel(u.rabbiStatus)}`
                       : ''}
                   </p>
                 </div>
@@ -291,9 +313,9 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
                   }}
                 >
                   <option value="user">Student</option>
-                  <option value="tester">Tester</option>
+                  <option value="tester">Coach</option>
                   <option value="rabbi">Rebbi</option>
-                  <option value="admin">Admin</option>
+                  <option value="admin">Owner</option>
                 </select>
               </li>
             ))}

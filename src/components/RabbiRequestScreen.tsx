@@ -4,6 +4,7 @@ import {
   createRabbiWaitMessage,
   fetchAvailableRabbis,
   fetchMyLearningRequests,
+  learningRequestStatusLabel,
   type Account,
   type LearningRequest,
   type RabbiProfile,
@@ -165,7 +166,7 @@ export function RabbiRequestScreen({
                 try {
                   const request = await createLearningRequest(message)
                   setRequests((prev) => [request, ...prev])
-                  setNotice('Request sent. A Rebbi can pick it up soon.')
+                  setNotice('Request sent. A Rebbi will reach out when ready.')
                 } catch (err) {
                   const text =
                     err instanceof Error ? err.message : 'Could not send request'
@@ -210,7 +211,9 @@ export function RabbiRequestScreen({
                 <li key={r.id}>
                   <div className="ticket-top">
                     <strong>{r.message.slice(0, 72)}</strong>
-                    <span className={`ticket-status ${r.status}`}>{r.status}</span>
+                    <span className={`ticket-status ${r.status}`}>
+                      {learningRequestStatusLabel(r.status)}
+                    </span>
                   </div>
                   <p className="soft">
                     {r.rabbiUsername

@@ -196,8 +196,8 @@ export default function App() {
       return (
         <div className="shell home-shell">
           <main className="home">
-            <h1>Admin only</h1>
-            <p className="lede">Your account does not have admin access.</p>
+            <h1>Private area</h1>
+            <p className="lede">This page is only for Guide owners.</p>
             <button type="button" className="btn-main" onClick={() => go('home')}>
               Back
             </button>
@@ -271,8 +271,8 @@ export default function App() {
             <p className="brand">{APP_NAME}</p>
             <h1>Teaching desk</h1>
             <p className="lede">
-              Your Rebbi application still needs to be approved before you can
-              take students.
+              Your application is still under review. We will open this desk
+              once you are welcome to teach.
             </p>
             <div className="submitted-actions">
               <button type="button" className="btn-main" onClick={() => go('home')}>
@@ -325,9 +325,9 @@ export default function App() {
       return (
         <div className="shell home-shell">
           <main className="home">
-            <h1>Testing panel</h1>
+            <h1>Coaching desk</h1>
             <p className="lede">
-              An admin needs to grant you tester access first.
+              Ask Guide for access if you help improve how the Rebbi teaches.
             </p>
             <button type="button" className="btn-main" onClick={() => go('home')}>
               Back

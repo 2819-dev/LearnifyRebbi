@@ -60,7 +60,7 @@ export function AuthScreen({
         <p className="lede">
           {isRabbi
             ? 'Share a little about how you teach. We review every application before you begin with students.'
-            : 'Username, phone number, and password — no email needed.'}
+            : 'Create an account with a username, phone number, and password.'}
         </p>
 
         <form

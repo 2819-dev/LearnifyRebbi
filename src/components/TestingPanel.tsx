@@ -85,22 +85,22 @@ export function TestingPanel({ account, onBack, onOpenAdmin }: Props) {
           <button type="button" className="linkish" onClick={onBack}>
             {APP_NAME}
           </button>
-          <p className="panel-sub">Testing · {account.username}</p>
+          <p className="panel-sub">Coaching desk · {account.username}</p>
         </div>
         <div className="panel-actions">
           {account.role === 'admin' && onOpenAdmin && (
             <button type="button" onClick={onOpenAdmin}>
-              Admin panel
+              Owner tools
             </button>
           )}
         </div>
       </header>
 
       <section className="panel-card">
-        <h2>Train the Rebbi</h2>
+        <h2>Improve the Rebbi</h2>
         <p className="lede panel-lede">
-          Ask something a student might ask. See the reply. Then teach how it
-          should answer next time.
+          Try a question a student might ask, then teach a better answer for
+          next time.
         </p>
 
         <label className="full">

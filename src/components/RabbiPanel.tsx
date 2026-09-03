@@ -3,6 +3,7 @@ import {
   claimLearningRequest,
   closeLearningRequest,
   fetchRabbiLearningRequests,
+  learningRequestStatusLabel,
   type Account,
   type LearningRequest,
 } from '../lib/account'
@@ -57,8 +58,8 @@ export function RabbiPanel({ account, onBack }: Props) {
       <section className="panel-card">
         <h2>Student requests</h2>
         <p className="lede panel-lede">
-          Open requests can be claimed by any approved Rebbi. Claimed ones stay
-          on your list until you close them.
+          Accept a waiting request to begin learning with that student. Finish
+          a request when you are done.
         </p>
         {requests.length === 0 && (
           <p className="soft">No student requests right now.</p>
@@ -68,7 +69,9 @@ export function RabbiPanel({ account, onBack }: Props) {
             <li key={r.id}>
               <div className="ticket-top">
                 <strong>{r.studentUsername}</strong>
-                <span className={`ticket-status ${r.status}`}>{r.status}</span>
+                <span className={`ticket-status ${r.status}`}>
+                  {learningRequestStatusLabel(r.status)}
+                </span>
               </div>
               <p>{r.message}</p>
               <p className="soft">{new Date(r.createdAt).toLocaleString()}</p>
@@ -83,7 +86,7 @@ export function RabbiPanel({ account, onBack }: Props) {
                       )
                     }}
                   >
-                    Claim
+                    Accept
                   </button>
                 )}
                 {r.status !== 'closed' && (
@@ -96,7 +99,7 @@ export function RabbiPanel({ account, onBack }: Props) {
                       )
                     }}
                   >
-                    Close
+                    Finish
                   </button>
                 )}
               </div>

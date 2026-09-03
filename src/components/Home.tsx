@@ -69,7 +69,7 @@ export function Home({
               <span className="soft">Hi, {account.username}</span>
               {account.role === 'admin' && onOpenAdmin && (
                 <button type="button" className="linkish tiny" onClick={onOpenAdmin}>
-                  Admin
+                  Owner tools
                 </button>
               )}
               {isApprovedRabbi(account) && onOpenRabbiPanel && (
@@ -88,7 +88,7 @@ export function Home({
                     className="linkish tiny"
                     onClick={onOpenTesting}
                   >
-                    Testing
+                    Coaching
                   </button>
                 )}
               {onSignOut && (

@@ -26,16 +26,16 @@ export function ApplicationSubmitted({
         </p>
         <h1>Application received</h1>
         <p className="lede">
-          Thanks{name ? `, ${name}` : ''}. We received your Rebbi application
-          and will be in touch when you are approved to teach.
+          Thanks{name ? `, ${name}` : ''}. We received your application to teach
+          as a Rebbi and will be in touch soon.
         </p>
 
         <div className="submitted-card">
           <h2>What happens next</h2>
           <ol className="submitted-steps">
-            <li>We read your teaching background and availability.</li>
-            <li>When you are approved, sign in to start taking students.</li>
-            <li>Students can then request to learn with you.</li>
+            <li>We review your teaching background and availability.</li>
+            <li>Once welcome to teach, sign in to meet your students.</li>
+            <li>Learners can then request to learn with you.</li>
           </ol>
         </div>
 
