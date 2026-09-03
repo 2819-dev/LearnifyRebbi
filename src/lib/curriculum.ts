@@ -38,13 +38,13 @@ export const HIGHLIGHT_LEGEND = [
   {
     id: 'reading',
     label: 'Being read',
-    swatch: '#d4a017',
+    swatch: '#1f7a6c',
     meaning: 'The words the Rebbe is reading right now.',
   },
   {
     id: 'term',
     label: 'Key term',
-    swatch: '#1f4e79',
+    swatch: '#154455',
     meaning: 'An important word he is explaining, like siman or ye’ush.',
   },
   {
@@ -56,7 +56,7 @@ export const HIGHLIGHT_LEGEND = [
   {
     id: 'focus',
     label: 'Pay attention',
-    swatch: '#9a4a2e',
+    swatch: '#b85a3a',
     meaning: 'A detail that decides the din.',
   },
 ] as const
