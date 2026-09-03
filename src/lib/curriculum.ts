@@ -38,7 +38,7 @@ export const HIGHLIGHT_LEGEND = [
   {
     id: 'reading',
     label: 'Being read',
-    swatch: '#1f7a6c',
+    swatch: '#2a6ea8',
     meaning: 'The words the Rebbe is reading right now.',
   },
   {
