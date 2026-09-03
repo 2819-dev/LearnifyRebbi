@@ -18,6 +18,8 @@ export type GemaraPage = {
   daf: string
   hebrew: string[]
   english: string[]
+  /** True when Sefaria marks the line's opening word with <big> (mishnah/gemara cue). */
+  leadBig: boolean[]
   rashi: CommentaryNote[]
   tosafot: CommentaryNote[]
   einMishpat: GutterNote[]
@@ -34,6 +36,11 @@ function stripHtml(html: string): string {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function hasLeadBig(html: string): boolean {
+  return /<(?:big|strong)\b[^>]*>\s*<(?:big|strong)\b/i.test(html) ||
+    /<big\b/i.test(html)
 }
 
 function asHebrewText(value: unknown): string {
@@ -119,7 +126,7 @@ function isMasoret(item: Record<string, unknown>): boolean {
 export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
   const ref = buildBavaMetziaRef(daf)
   const res = await fetch(
-    `https://www.sefaria.org/api/texts/${ref}?context=0&commentary=1`,
+    `https://www.sefaria.org/api/texts/${ref}?context=0&commentary=1&ven=William_Davidson_Edition_-_English&vhe=William_Davidson_Edition_-_Vocalized_Aramaic`,
   )
   if (!res.ok) {
     throw new Error(`Could not load ${ref} from Sefaria (${res.status})`)
@@ -130,9 +137,12 @@ export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
   const len = Math.max(hebrewRaw.length, englishRaw.length)
   const hebrew: string[] = []
   const english: string[] = []
+  const leadBig: boolean[] = []
   for (let i = 0; i < len; i++) {
-    hebrew.push(stripHtml(String(hebrewRaw[i] ?? '')))
+    const heHtml = String(hebrewRaw[i] ?? '')
+    hebrew.push(stripHtml(heHtml))
     english.push(stripHtml(String(englishRaw[i] ?? '')))
+    leadBig.push(hasLeadBig(heHtml))
   }
 
   const commentary = Array.isArray(data.commentary) ? data.commentary : []
@@ -159,6 +169,7 @@ export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
     daf: normalized,
     hebrew,
     english,
+    leadBig,
     rashi,
     tosafot,
     einMishpat,

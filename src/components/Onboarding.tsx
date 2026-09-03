@@ -5,7 +5,7 @@ import { HIGHLIGHT_LEGEND } from '../lib/curriculum'
 const STEPS = [
   {
     title: 'Your Gemara',
-    body: 'The amud opens like a printed Vilna page: large Gemara in the middle, Rashi and Tosafot wrapping around it. Tap any line to learn it.',
+    body: 'The amud opens like a printed Vilna page — large vocalized Gemara in the middle, Rashi and Tosafot wrapping around it. Tap a line to see the English and learn it with the Rebbe.',
   },
   {
     title: 'Follow along',

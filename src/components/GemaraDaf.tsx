@@ -99,6 +99,7 @@ function CommentaryStream({
 }
 
 function Gutter({ notes, label }: { notes: GutterNote[]; label: string }) {
+  if (notes.length === 0) return <aside className="vilna-gutter" aria-hidden />
   return (
     <aside className="vilna-gutter" aria-label={label}>
       {notes.map((n) => (
@@ -110,6 +111,14 @@ function Gutter({ notes, label }: { notes: GutterNote[]; label: string }) {
   )
 }
 
+function cleanEnglish(text: string): string {
+  return text
+    .replace(/\s+/g, ' ')
+    .replace(/^MISHNA:\s*/i, '')
+    .replace(/^GEMARA:\s*/i, '')
+    .trim()
+}
+
 export function GemaraDaf({
   page,
   lineIndex,
@@ -117,40 +126,56 @@ export function GemaraDaf({
   highlights,
 }: Props) {
   const islandRef = useRef<HTMLElement>(null)
-  const [islandH, setIslandH] = useState(220)
+  const [islandH, setIslandH] = useState(240)
   const { dafHe, amudHe } = formatAmudHe(page.daf)
   const perek = bavaMetziaPerek(page.daf)
   const verso = /b$/i.test(page.daf)
   const firstMishnah = page.hebrew.findIndex(
     (line, i) => line.trim() && isMishnahLine(page.english[i] || '', line),
   )
+  const english = cleanEnglish(page.english[lineIndex] || '')
 
   useLayoutEffect(() => {
     const el = islandRef.current
     if (!el) return
-    const measure = () => setIslandH(Math.max(el.offsetHeight, 80))
+    const measure = () => setIslandH(Math.max(el.offsetHeight, 96))
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [page])
+  }, [page, lineIndex])
 
   return (
     <div className="vilna-page" aria-label="Gemara page">
       <header className="vilna-head" dir="rtl" lang="he">
-        <span className="vilna-head-daf">{dafHe}</span>
-        <span className="vilna-head-masechta">{page.heIndexTitle}</span>
-        <span className="vilna-head-perek">
-          פרק {perek.ordinalHe} · {perek.nameHe}
-        </span>
-        <span className="vilna-head-amud">{amudHe}</span>
+        <div className="vilna-head-cell vilna-head-side">
+          <span className="vilna-head-daf">{dafHe}</span>
+          <span className="vilna-head-amud">{amudHe}</span>
+        </div>
+        <div className="vilna-head-cell vilna-head-mid">
+          <span className="vilna-head-masechta">{page.heIndexTitle}</span>
+          <span className="vilna-head-perek">
+            פרק {perek.ordinalHe} · {perek.nameHe}
+          </span>
+        </div>
+        <div className="vilna-head-cell vilna-head-side vilna-head-end">
+          <span className="vilna-head-amud">{amudHe}</span>
+          <span className="vilna-head-daf">{dafHe}</span>
+        </div>
       </header>
 
-      <div className="vilna-ornament" aria-hidden>
+      <div className="vilna-rule" aria-hidden>
         <span />
         <i />
         <span />
       </div>
+
+      {english ? (
+        <p className="vilna-english" lang="en">
+          <span className="vilna-english-label">Translation</span>
+          {english}
+        </p>
+      ) : null}
 
       <div
         className="vilna-sheet"
@@ -173,7 +198,8 @@ export function GemaraDaf({
               if (!line.trim()) return null
               const mishnah = isMishnahLine(page.english[i] || '', line)
               const gemaraMark = isGemaraMarker(page.english[i] || '', line)
-              const dropFirst = mishnah && i === firstMishnah
+              const dropFirst =
+                (mishnah && i === firstMishnah) || page.leadBig[i]
               const kind = mishnah
                 ? 'mishnah'
                 : gemaraMark
@@ -205,6 +231,9 @@ export function GemaraDaf({
           </section>
 
           <div className="vilna-rashi-col" aria-label="רש״י">
+            <div className="vilna-col-label" aria-hidden>
+              רש״י
+            </div>
             <div className="vilna-spacer" aria-hidden />
             <CommentaryStream
               notes={page.rashi}
@@ -213,6 +242,9 @@ export function GemaraDaf({
             />
           </div>
           <div className="vilna-tosafot-col" aria-label="תוספות">
+            <div className="vilna-col-label" aria-hidden>
+              תוספות
+            </div>
             <div className="vilna-spacer" aria-hidden />
             <CommentaryStream
               notes={page.tosafot}
@@ -228,7 +260,7 @@ export function GemaraDaf({
         />
       </div>
 
-      <div className="vilna-ornament vilna-ornament-foot" aria-hidden>
+      <div className="vilna-rule vilna-rule-foot" aria-hidden>
         <span />
         <i />
         <span />
