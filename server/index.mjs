@@ -1,92 +1,38 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { existsSync, readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
-import {
-  generateRebbeReply,
-  synthesizeRebbeSpeech,
-  REBBE_VOICES,
-} from './rebbe-core.mjs'
-import { mountAccountRoutes } from './account-routes.mjs'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const root = join(__dirname, '..')
-const envPath = join(root, '.env')
-if (existsSync(envPath)) {
-  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const eq = trimmed.indexOf('=')
-    if (eq === -1) continue
-    const key = trimmed.slice(0, eq).trim()
-    let value = trimmed.slice(eq + 1).trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1)
-    }
-    if (!(key in process.env)) process.env[key] = value
-  }
-}
+const TARGET = 'https://xdsnoqckoolwatgwtyfy.supabase.co/functions/v1'
+const ANON =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc25vcWNrb29sd2F0Z3d0eWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMzMzODksImV4cCI6MjEwMzcwOTM4OX0.3Nx7Aq40Tj10-Woc_5gcPUNU23qJWWI8X7kdwKvHXgg'
 
 const app = new Hono()
 app.use('/api/*', cors())
 
-app.get('/api/health', (c) => c.json({ ok: true, name: 'Guide' }))
-app.get('/api/voices', (c) => c.json({ voices: REBBE_VOICES }))
-mountAccountRoutes(app)
-
-function lessonResponse(lesson, audio = null) {
-  return {
-    reply: lesson.speech || lesson.explain || '',
-    welcome: lesson.welcome || '',
-    hebrew: lesson.hebrew || '',
-    english: lesson.english || '',
-    explain: lesson.explain || '',
-    highlights: lesson.highlights || [],
-    audio,
+async function proxy(c, name) {
+  const headers = {
+    'Content-Type': 'application/json',
+    apikey: ANON,
   }
+  const auth = c.req.header('authorization')
+  if (auth) headers.Authorization = auth
+  const method = c.req.method
+  const res = await fetch(`${TARGET}/${name}`, {
+    method,
+    headers,
+    body: method === 'GET' || method === 'HEAD' ? undefined : await c.req.text(),
+  })
+  return new Response(await res.text(), {
+    status: res.status,
+    headers: { 'Content-Type': res.headers.get('Content-Type') || 'application/json' },
+  })
 }
 
-app.post('/api/rebbe', async (c) => {
-  let body
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'Invalid JSON body' }, 400)
-  }
-
-  try {
-    if (body?.action === 'speak') {
-      const spoken = await synthesizeRebbeSpeech(body.text, body.voice)
-      return c.json(spoken)
-    }
-
-    const lesson = await generateRebbeReply(body)
-    let audio = null
-    if (body?.includeSpeech !== false && !lesson.hebrew) {
-      const firstText = lesson.welcome || lesson.speech || lesson.explain || ''
-      if (firstText) {
-        audio = await synthesizeRebbeSpeech(firstText, body.voice)
-      }
-    }
-    return c.json(lessonResponse(lesson, audio))
-  } catch (err) {
-    console.error(err)
-    return c.json(
-      {
-        error:
-          err?.message ||
-          'The Rebbe could not answer right now. Check your Gemini key and try again.',
-      },
-      err?.status || 500,
-    )
-  }
-})
+app.all('/api/account', (c) => proxy(c, 'guide-account'))
+app.all('/api/rebbe', (c) => proxy(c, 'guide-rebbe'))
+app.all('/api/health', (c) => proxy(c, 'guide-health'))
+app.get('/api/voices', (c) => proxy(c, 'guide-rebbe'))
 
 const port = Number(process.env.PORT || 8787)
-console.log(`Guide Rebbe API on http://localhost:${port}`)
+console.log(`Guide API proxy on http://localhost:${port} -> ${TARGET}`)
 serve({ fetch: app.fetch, port })

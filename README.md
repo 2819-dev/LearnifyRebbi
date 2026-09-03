@@ -7,10 +7,11 @@ Open the page. Follow the words. Ask when you need to.
 ## Local development
 
 ```bash
-cp .env.example .env
 npm install
 npm run dev
 ```
+
+The browser talks to Supabase Edge Functions. No Netlify env vars or Blobs.
 
 ## Live
 

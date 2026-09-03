@@ -1,3 +1,5 @@
+import { GUIDE_ANON_KEY, GUIDE_FUNCTIONS } from './guide-backend'
+
 const TOKEN_KEY = 'guide.auth.token'
 
 export type AccountRole = 'user' | 'tester' | 'admin'
@@ -51,10 +53,11 @@ async function accountApi<T>(
   body: Record<string, unknown> = {},
 ): Promise<T> {
   const token = getToken()
-  const res = await fetch('/api/account', {
+  const res = await fetch(GUIDE_FUNCTIONS.account, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      apikey: GUIDE_ANON_KEY,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ action, token, ...body }),

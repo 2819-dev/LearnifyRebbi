@@ -1,0 +1,4 @@
+# Supabase local secrets (never commit)
+functions/.env
+
+.temp

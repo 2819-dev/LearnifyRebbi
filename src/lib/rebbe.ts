@@ -1,3 +1,4 @@
+import { GUIDE_ANON_KEY, GUIDE_FUNCTIONS } from './guide-backend'
 import type { HighlightKind } from './curriculum'
 
 export type ChatMessage = {
@@ -400,9 +401,12 @@ export async function askRebbe(payload: {
   needWelcome?: boolean
   includeSpeech?: boolean
 }): Promise<RebbeResponse> {
-  const res = await fetch('/api/rebbe', {
+  const res = await fetch(GUIDE_FUNCTIONS.rebbe, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: GUIDE_ANON_KEY,
+    },
     body: JSON.stringify(payload),
   })
   const data = await res.json()
@@ -427,9 +431,12 @@ export async function speakAgain(
   text: string,
   voice: string,
 ): Promise<SpeakPayload> {
-  const res = await fetch('/api/rebbe', {
+  const res = await fetch(GUIDE_FUNCTIONS.rebbe, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: GUIDE_ANON_KEY,
+    },
     body: JSON.stringify({ action: 'speak', text, voice }),
   })
   const data = await res.json()

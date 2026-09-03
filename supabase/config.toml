@@ -1,0 +1,10 @@
+project_id = "xdsnoqckoolwatgwtyfy"
+
+[functions.guide-account]
+verify_jwt = false
+
+[functions.guide-rebbe]
+verify_jwt = false
+
+[functions.guide-health]
+verify_jwt = false
