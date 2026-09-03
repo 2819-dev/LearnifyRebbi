@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react'
 import curriculum from '../data/hashavas-aveidah.json'
 import { APP_NAME, REBBE_VOICES, loadTalkMode, saveTalkMode, type TalkMode } from '../lib/brand'
 import { TRACTATES } from '../lib/curriculum'
-import type { Account } from '../lib/account'
+import { isApprovedRabbi, type Account } from '../lib/account'
 import { unlockAudio } from '../lib/rebbe'
 import { normalizeDaf } from '../lib/sefaria'
 import { TalkModePicker } from './TalkModePicker'
+import { LearnPathPicker, type LearnPath } from './LearnPathPicker'
 
 type Props = {
   onStart: (opts: {
@@ -14,29 +15,36 @@ type Props = {
     tractateId: string
     talkMode: TalkMode
   }) => void
+  onLearnWithRebbi: () => void
   onShowTour?: () => void
   account?: Account | null
   onSignIn?: () => void
+  onRegisterRabbi?: () => void
   onSignOut?: () => void
   onOpenAdmin?: () => void
   onOpenTesting?: () => void
+  onOpenRabbiPanel?: () => void
   onOpenSupport?: () => void
 }
 
 export function Home({
   onStart,
+  onLearnWithRebbi,
   onShowTour,
   account,
   onSignIn,
+  onRegisterRabbi,
   onSignOut,
   onOpenAdmin,
   onOpenTesting,
+  onOpenRabbiPanel,
   onOpenSupport,
 }: Props) {
   const [tractateId, setTractateId] = useState(TRACTATES[0].id)
   const [daf, setDaf] = useState(curriculum.defaultDaf)
   const [voiceId, setVoiceId] = useState<string>(REBBE_VOICES[0].id)
   const [talkMode, setTalkMode] = useState<TalkMode>(() => loadTalkMode())
+  const [learnPath, setLearnPath] = useState<LearnPath>('guide')
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,6 +53,7 @@ export function Home({
     [tractateId],
   )
   const preview = useMemo(() => normalizeDaf(daf), [daf])
+  const pendingRabbi = account?.rabbiStatus === 'pending'
 
   return (
     <div className="shell home-shell">
@@ -59,6 +68,15 @@ export function Home({
               {account.role === 'admin' && onOpenAdmin && (
                 <button type="button" className="linkish tiny" onClick={onOpenAdmin}>
                   Admin
+                </button>
+              )}
+              {isApprovedRabbi(account) && onOpenRabbiPanel && (
+                <button
+                  type="button"
+                  className="linkish tiny"
+                  onClick={onOpenRabbiPanel}
+                >
+                  Rabbi panel
                 </button>
               )}
               {(account.role === 'admin' || account.role === 'tester') &&
@@ -78,11 +96,22 @@ export function Home({
               )}
             </>
           ) : (
-            onSignIn && (
-              <button type="button" className="linkish tiny" onClick={onSignIn}>
-                Sign in
-              </button>
-            )
+            <>
+              {onSignIn && (
+                <button type="button" className="linkish tiny" onClick={onSignIn}>
+                  Sign in
+                </button>
+              )}
+              {onRegisterRabbi && (
+                <button
+                  type="button"
+                  className="linkish tiny"
+                  onClick={onRegisterRabbi}
+                >
+                  Register as Rabbi
+                </button>
+              )}
+            </>
           )}
           {onOpenSupport && (
             <button type="button" className="linkish tiny" onClick={onOpenSupport}>
@@ -93,14 +122,24 @@ export function Home({
 
         <p className="brand">{APP_NAME}</p>
         <p className="lede">
-          A Rebbe beside the page. Open the amud, follow the words, ask when
-          you need to.
+          A Rebbe beside the page. Learn with Guide, or request a real-life
+          rabbi when one is available.
         </p>
+
+        {pendingRabbi && (
+          <p className="soft path-note">
+            Your rabbi application is pending admin approval.
+          </p>
+        )}
 
         <form
           className="setup"
           onSubmit={async (e) => {
             e.preventDefault()
+            if (learnPath === 'rebbe') {
+              onLearnWithRebbi()
+              return
+            }
             if (!tractate.enabled) {
               setError('That sugya is coming soon. Choose an available topic.')
               return
@@ -122,67 +161,84 @@ export function Home({
             }
           }}
         >
-          <label className="full">
-            <span>What you are learning</span>
-            <select
-              value={tractateId}
-              onChange={(e) => {
-                const next = TRACTATES.find((t) => t.id === e.target.value)
-                setTractateId(e.target.value)
-                if (next) setDaf(next.defaultDaf)
-              }}
-              aria-label="What you are learning"
-            >
-              {TRACTATES.map((t) => (
-                <option key={t.id} value={t.id} disabled={!t.enabled}>
-                  {t.label}
-                  {!t.enabled ? ' (soon)' : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+          <LearnPathPicker value={learnPath} onChange={setLearnPath} />
 
-          <div className="setup-row">
-            <label>
-              <span>Masechta</span>
-              <strong>{tractate.masechta}</strong>
-            </label>
-            <label>
-              <span>Start from daf</span>
-              <input
-                value={daf}
-                onChange={(e) => setDaf(e.target.value)}
-                placeholder="21a"
-                inputMode="text"
-                autoComplete="off"
-                aria-label="Start from daf"
-              />
-            </label>
-          </div>
+          {learnPath === 'guide' && (
+            <>
+              <label className="full">
+                <span>What you are learning</span>
+                <select
+                  value={tractateId}
+                  onChange={(e) => {
+                    const next = TRACTATES.find((t) => t.id === e.target.value)
+                    setTractateId(e.target.value)
+                    if (next) setDaf(next.defaultDaf)
+                  }}
+                  aria-label="What you are learning"
+                >
+                  {TRACTATES.map((t) => (
+                    <option key={t.id} value={t.id} disabled={!t.enabled}>
+                      {t.label}
+                      {!t.enabled ? ' (soon)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          <TalkModePicker value={talkMode} onChange={setTalkMode} />
+              <div className="setup-row">
+                <label>
+                  <span>Masechta</span>
+                  <strong>{tractate.masechta}</strong>
+                </label>
+                <label>
+                  <span>Start from daf</span>
+                  <input
+                    value={daf}
+                    onChange={(e) => setDaf(e.target.value)}
+                    placeholder="21a"
+                    inputMode="text"
+                    autoComplete="off"
+                    aria-label="Start from daf"
+                  />
+                </label>
+              </div>
 
-          {talkMode === 'voice' && (
-            <label className="full">
-              <span>Voice</span>
-              <select
-                value={voiceId}
-                onChange={(e) => setVoiceId(e.target.value)}
-                aria-label="Rebbe voice"
-              >
-                {REBBE_VOICES.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <TalkModePicker value={talkMode} onChange={setTalkMode} />
+
+              {talkMode === 'voice' && (
+                <label className="full">
+                  <span>Voice</span>
+                  <select
+                    value={voiceId}
+                    onChange={(e) => setVoiceId(e.target.value)}
+                    aria-label="Rebbe voice"
+                  >
+                    {REBBE_VOICES.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </>
+          )}
+
+          {learnPath === 'rebbe' && (
+            <p className="soft path-note">
+              Next you can request an available rabbi, or leave a message if
+              none are free.
+            </p>
           )}
 
           {error && <p className="bad">{error}</p>}
 
           <button type="submit" className="btn-main" disabled={starting}>
-            {starting ? 'Opening…' : 'Begin'}
+            {starting
+              ? 'Opening…'
+              : learnPath === 'rebbe'
+                ? 'Continue'
+                : 'Begin'}
           </button>
 
           {onShowTour && (

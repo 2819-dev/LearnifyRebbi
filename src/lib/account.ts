@@ -2,13 +2,17 @@ import { GUIDE_ANON_KEY, GUIDE_FUNCTIONS } from './guide-backend'
 
 const TOKEN_KEY = 'guide.auth.token'
 
-export type AccountRole = 'user' | 'tester' | 'admin'
+export type AccountRole = 'user' | 'tester' | 'admin' | 'rabbi'
+export type RabbiStatus = 'none' | 'pending' | 'approved' | 'rejected'
 
 export type Account = {
   id: string
   username: string
   role: AccountRole
   createdAt: string
+  rabbiStatus: RabbiStatus
+  rabbiDisplayName: string
+  rabbiBio: string
 }
 
 export type SupportTicket = {
@@ -28,6 +32,53 @@ export type TrainingRow = {
   prompt: string
   aiResponse: string
   correction: string
+  createdAt: string
+}
+
+export type RabbiAnswers = {
+  displayName: string
+  experience: string
+  ages: string
+  availability: string
+  approach: string
+  why: string
+}
+
+export type RabbiProfile = {
+  id: string
+  username: string
+  displayName: string
+  bio: string
+}
+
+export type LearningRequest = {
+  id: string
+  studentId: string
+  studentUsername: string
+  rabbiId: string | null
+  rabbiUsername: string | null
+  message: string
+  status: 'open' | 'claimed' | 'closed'
+  createdAt: string
+  updatedAt: string
+}
+
+export type RabbiWaitMessage = {
+  id: string
+  accountId: string | null
+  name: string
+  message: string
+  status: 'open' | 'closed'
+  createdAt: string
+}
+
+export type RabbiApplication = {
+  id: string
+  username: string
+  displayName: string
+  bio: string
+  answers: Partial<RabbiAnswers>
+  status: RabbiStatus
   createdAt: string
 }
 
@@ -80,6 +131,27 @@ export async function register(input: {
   return data.account
 }
 
+export async function registerRabbi(input: {
+  username: string
+  phone: string
+  password: string
+  answers: RabbiAnswers
+}) {
+  const data = await accountApi<{ token: string; account: Account }>(
+    'registerRabbi',
+    input,
+  )
+  setToken(data.token)
+  return data.account
+}
+
+export async function applyAsRabbi(answers: RabbiAnswers) {
+  const data = await accountApi<{ account: Account }>('applyAsRabbi', {
+    answers,
+  })
+  return data.account
+}
+
 export async function login(input: {
   username?: string
   phone?: string
@@ -117,6 +189,96 @@ export async function setRole(accountId: string, role: AccountRole) {
     role,
   })
   return data.account
+}
+
+export async function fetchPendingRabbis() {
+  const data = await accountApi<{ applications: RabbiApplication[] }>(
+    'pendingRabbis',
+  )
+  return data.applications
+}
+
+export async function reviewRabbi(
+  accountId: string,
+  decision: 'approved' | 'rejected',
+) {
+  const data = await accountApi<{ account: Account }>('reviewRabbi', {
+    accountId,
+    decision,
+  })
+  return data.account
+}
+
+export async function fetchAvailableRabbis() {
+  const data = await accountApi<{ rabbis: RabbiProfile[] }>('availableRabbis')
+  return data.rabbis
+}
+
+export async function createLearningRequest(message: string) {
+  const data = await accountApi<{ request: LearningRequest }>(
+    'createLearningRequest',
+    { message },
+  )
+  return data.request
+}
+
+export async function fetchMyLearningRequests() {
+  const data = await accountApi<{ requests: LearningRequest[] }>(
+    'myLearningRequests',
+  )
+  return data.requests
+}
+
+export async function fetchRabbiLearningRequests() {
+  const data = await accountApi<{ requests: LearningRequest[] }>(
+    'rabbiLearningRequests',
+  )
+  return data.requests
+}
+
+export async function claimLearningRequest(requestId: string) {
+  const data = await accountApi<{ request: LearningRequest }>(
+    'claimLearningRequest',
+    { requestId },
+  )
+  return data.request
+}
+
+export async function closeLearningRequest(requestId: string) {
+  const data = await accountApi<{ request: LearningRequest }>(
+    'closeLearningRequest',
+    { requestId },
+  )
+  return data.request
+}
+
+export async function createRabbiWaitMessage(input: {
+  name?: string
+  message: string
+}) {
+  const data = await accountApi<{ message: RabbiWaitMessage }>(
+    'createRabbiMessage',
+    input,
+  )
+  return data.message
+}
+
+export async function fetchRabbiWaitMessages() {
+  const data = await accountApi<{ messages: RabbiWaitMessage[] }>(
+    'rabbiMessages',
+  )
+  return data.messages
+}
+
+export async function updateRabbiWaitMessage(
+  messageId: string,
+  status: RabbiWaitMessage['status'],
+) {
+  const data = await accountApi<{ message: RabbiWaitMessage }>(
+    'updateRabbiMessage',
+    { messageId, status },
+  )
+  return data.message
 }
 
 export async function createTicket(input: {
@@ -165,4 +327,12 @@ export async function trainingChat(question: string, history: { role: 'user' | '
     messages: history,
   })
   return data.reply
+}
+
+export function isApprovedRabbi(account: Account | null | undefined) {
+  return Boolean(
+    account &&
+      (account.role === 'rabbi' || account.role === 'admin') &&
+      (account.role === 'admin' || account.rabbiStatus === 'approved'),
+  )
 }

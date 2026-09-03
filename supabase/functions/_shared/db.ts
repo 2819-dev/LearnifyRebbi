@@ -6,7 +6,9 @@ let cached: Sql | null = null
 
 export function sql(): Sql {
   if (cached) return cached
-  const url = Deno.env.get('SUPABASE_DB_URL')
+  const url =
+    Deno.env.get('SUPABASE_DB_URL') ||
+    Deno.env.get('DATABASE_URL')
   if (!url) throw new Error('Database is not configured')
   cached = postgres(url, {
     max: 1,

@@ -6,6 +6,8 @@ import { AuthScreen } from './components/AuthScreen'
 import { AdminPanel } from './components/AdminPanel'
 import { TestingPanel } from './components/TestingPanel'
 import { SupportForm } from './components/SupportForm'
+import { RabbiPanel } from './components/RabbiPanel'
+import { RabbiRequestScreen } from './components/RabbiRequestScreen'
 import {
   hasCompletedOnboarding,
   markOnboardingDone,
@@ -15,6 +17,7 @@ import {
 import {
   fetchMe,
   getToken,
+  isApprovedRabbi,
   logout,
   type Account,
 } from './lib/account'
@@ -27,12 +30,23 @@ type Session = {
   talkMode: TalkMode
 } | null
 
-type View = 'home' | 'learn' | 'auth' | 'admin' | 'testing'
+type View =
+  | 'home'
+  | 'learn'
+  | 'auth'
+  | 'auth-rabbi'
+  | 'admin'
+  | 'testing'
+  | 'rabbi'
+  | 'rebbe-request'
 
 function viewFromPath(): View {
   const path = window.location.pathname.replace(/\/+$/, '') || '/'
   if (path === '/admin') return 'admin'
   if (path === '/test' || path === '/testing') return 'testing'
+  if (path === '/rabbi') return 'rabbi'
+  if (path === '/learn-with-rebbe') return 'rebbe-request'
+  if (path === '/register-rabbi') return 'auth-rabbi'
   if (path === '/login' || path === '/account') return 'auth'
   return 'home'
 }
@@ -54,9 +68,15 @@ export default function App() {
         ? '/admin'
         : next === 'testing'
           ? '/test'
-          : next === 'auth'
-            ? '/login'
-            : '/'
+          : next === 'rabbi'
+            ? '/rabbi'
+            : next === 'rebbe-request'
+              ? '/learn-with-rebbe'
+              : next === 'auth-rabbi'
+                ? '/register-rabbi'
+                : next === 'auth'
+                  ? '/login'
+                  : '/'
     window.history.pushState({}, '', path)
   }
 
@@ -92,6 +112,14 @@ export default function App() {
     setShowOnboarding(false)
   }
 
+  function routeAfterSignIn(acc: Account) {
+    setAccount(acc)
+    if (acc.role === 'admin') go('admin')
+    else if (isApprovedRabbi(acc)) go('rabbi')
+    else if (acc.role === 'tester') go('testing')
+    else go('home')
+  }
+
   if (!authReady) {
     return (
       <div className="shell home-shell">
@@ -100,16 +128,12 @@ export default function App() {
     )
   }
 
-  if (view === 'auth') {
+  if (view === 'auth' || view === 'auth-rabbi') {
     return (
       <AuthScreen
+        initialMode={view === 'auth-rabbi' ? 'rabbi' : 'login'}
         onBack={() => go('home')}
-        onSignedIn={(acc) => {
-          setAccount(acc)
-          if (acc.role === 'admin') go('admin')
-          else if (acc.role === 'tester') go('testing')
-          else go('home')
-        }}
+        onSignedIn={routeAfterSignIn}
       />
     )
   }
@@ -144,6 +168,59 @@ export default function App() {
         account={account}
         onBack={() => go('home')}
         onOpenTesting={() => go('testing')}
+      />
+    )
+  }
+
+  if (view === 'rabbi') {
+    if (!account) {
+      return (
+        <AuthScreen
+          onBack={() => go('home')}
+          onSignedIn={(acc) => {
+            setAccount(acc)
+            go(isApprovedRabbi(acc) ? 'rabbi' : 'home')
+          }}
+        />
+      )
+    }
+    if (!isApprovedRabbi(account)) {
+      return (
+        <div className="shell home-shell">
+          <main className="home">
+            <h1>Rabbi panel</h1>
+            <p className="lede">
+              {account.rabbiStatus === 'pending'
+                ? 'Your application is waiting for admin approval.'
+                : 'An admin needs to approve you as a rabbi first.'}
+            </p>
+            <button type="button" className="btn-main" onClick={() => go('home')}>
+              Back
+            </button>
+          </main>
+        </div>
+      )
+    }
+    return <RabbiPanel account={account} onBack={() => go('home')} />
+  }
+
+  if (view === 'rebbe-request') {
+    if (!account) {
+      return (
+        <AuthScreen
+          onBack={() => go('home')}
+          onSignedIn={(acc) => {
+            setAccount(acc)
+            go('rebbe-request')
+          }}
+        />
+      )
+    }
+    return (
+      <RabbiRequestScreen
+        account={account}
+        onBack={() => go('home')}
+        onLearnWithGuide={() => go('home')}
       />
     )
   }
@@ -217,14 +294,23 @@ export default function App() {
         onStart={({ daf, voiceId, tractateId, talkMode }) => {
           setSession({ daf, voiceId, tractateId, talkMode })
         }}
+        onLearnWithRebbi={() => {
+          if (!account) {
+            go('auth')
+            return
+          }
+          go('rebbe-request')
+        }}
         onShowTour={() => setShowOnboarding(true)}
         onSignIn={() => go('auth')}
+        onRegisterRabbi={() => go('auth-rabbi')}
         onSignOut={async () => {
           await logout()
           setAccount(null)
         }}
         onOpenAdmin={() => go('admin')}
         onOpenTesting={() => go('testing')}
+        onOpenRabbiPanel={() => go('rabbi')}
         onOpenSupport={() => setShowSupport(true)}
       />
       {showSupport && (
