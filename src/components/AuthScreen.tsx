@@ -47,10 +47,11 @@ export function AuthScreen({
         : 'Create account'
 
   return (
-    <div className="shell home-shell">
+    <div className="home-stage auth-stage">
       <div className="home-atmosphere" aria-hidden>
         <span>גמ׳</span>
       </div>
+      <div className="shell home-shell">
       <main className={`home auth-home${isRabbi ? ' auth-home-wide' : ''}`}>
         <button type="button" className="linkish tiny auth-back" onClick={onBack}>
           ← Back to {APP_NAME}
@@ -275,6 +276,7 @@ export function AuthScreen({
           </div>
         </form>
       </main>
+      </div>
     </div>
   )
 }

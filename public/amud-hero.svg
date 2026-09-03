@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100" fill="none" aria-hidden="true">
+  <rect width="900" height="1100" fill="#F3EFE4"/>
+  <rect x="48" y="56" width="804" height="988" fill="#F7F3E8" stroke="#C9BEA6" stroke-width="2"/>
+  <!-- Rashi left -->
+  <g fill="#2A241C" opacity="0.55" font-family="serif" font-size="15">
+    <text x="70" y="120">аош шба</text>
+    <text x="70" y="148">дйлй гой</text>
+    <text x="70" y="176">сйоп</text>
+    <text x="70" y="204">дрй оймй</text>
+    <text x="70" y="232">бочен</text>
+    <text x="70" y="260">щшеб</text>
+    <text x="70" y="288">йщшам</text>
+    <text x="70" y="316">оцеййп</text>
+    <text x="70" y="344">абм</text>
+    <text x="70" y="372">бочен</text>
+    <text x="70" y="400">щшеб</text>
+    <text x="70" y="428">леъйн</text>
+  </g>
+  <!-- Center Gemara -->
+  <g fill="#14110E" font-family="serif" font-size="28" font-weight="700">
+    <text x="320" y="160">аме оцйаеъ щме</text>
+    <text x="300" y="210">еаме зййб мдлшйж</text>
+    <text x="290" y="260">аме оцйаеъ щме</text>
+    <text x="310" y="310">оца фйшеъ офежшйп</text>
+    <text x="295" y="360">отеъ офежшеъ</text>
+    <text x="305" y="410">лшйлеъ бшщеъ дшбйн</text>
+    <text x="318" y="460">тйвемй гбймд</text>
+    <text x="300" y="510">ллшеъ щм рзъен</text>
+    <text x="290" y="560">озшежеъ щм гвйн</text>
+    <text x="310" y="610">езъйлеъ щм бщш</text>
+  </g>
+  <!-- Tosafot right -->
+  <g fill="#2A241C" opacity="0.5" font-family="serif" font-size="14">
+    <text x="700" y="130">еаєъ</text>
+    <text x="680" y="156">дйлй</text>
+    <text x="690" y="182">ощлзъ</text>
+    <text x="685" y="208">мд</text>
+    <text x="700" y="234">бйаещ</text>
+    <text x="675" y="260">щма огтъ</text>
+    <text x="690" y="286">ейєм</text>
+    <text x="680" y="312">гщарй</text>
+    <text x="695" y="338">дла</text>
+  </g>
+  <rect x="260" y="130" width="340" height="8" fill="#234B3A" opacity="0.15"/>
+  <rect x="270" y="480" width="300" height="28" fill="#234B3A" opacity="0.12"/>
+</svg>
