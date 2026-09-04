@@ -836,6 +836,16 @@ export function LearningRoom({
               onSelectLine={goLine}
               highlights={highlights}
             />
+            {page.english[lineIndex]?.trim() ? (
+              <p className="line-english" lang="en">
+                <span className="line-english-label">Line</span>
+                {page.english[lineIndex]
+                  .replace(/\s+/g, ' ')
+                  .replace(/^MISHNA:\s*/i, '')
+                  .replace(/^GEMARA:\s*/i, '')
+                  .trim()}
+              </p>
+            ) : null}
             <div className="pager">
               <button
                 type="button"

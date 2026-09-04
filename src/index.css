@@ -10,17 +10,18 @@
   --warm: #8a7342;
   --warm-soft: rgba(35, 75, 58, 0.14);
   --danger: #9b3a32;
-  --daf: #f3efe4;
-  --daf-ink: #14110e;
-  --daf-line: rgba(90, 70, 40, 0.28);
+  --daf: #ffffff;
+  --daf-ink: #111111;
+  --daf-line: rgba(17, 17, 17, 0.14);
   --radius: 8px;
   --font-ui: 'Figtree', 'Avenir Next', 'Segoe UI', sans-serif;
   --font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', serif;
   --font-hebrew: 'Frank Ruhl Libre', 'Times New Roman', serif;
   --font-rashi: 'Noto Rashi Hebrew', 'Frank Ruhl Libre', serif;
-  --desk: #1a2420;
+  --desk: #e8eee9;
   --edge: rgba(35, 75, 58, 0.22);
   --glow: rgba(255, 255, 255, 0.55);
+  --muted: #6a6862;
 }
 
 * {
@@ -797,17 +798,18 @@ button {
 
 .daf-pane {
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.05), transparent 42%),
-    linear-gradient(180deg, #1a303c 0%, var(--desk) 38%, #0b1a22 100%);
-  padding: 0.85rem 0.85rem 0.55rem;
-  box-shadow: inset 0 1px 0 var(--edge);
+    linear-gradient(180deg, #f2f6f3 0%, var(--desk) 55%, #dde6e0 100%);
+  padding: 0.7rem 0.7rem 0.55rem;
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 var(--glow);
+  gap: 0.55rem;
 }
 
 .talk-pane {
-  background: color-mix(in srgb, var(--surface) 88%, var(--desk));
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent) 8%);
   border: 1px solid var(--line);
   overflow: hidden;
-  box-shadow: inset 0 1px 0 var(--edge);
+  box-shadow: inset 0 1px 0 var(--glow);
 }
 
 .talk-voice {
@@ -972,14 +974,43 @@ button {
 }
 
 .pager button {
-  border-radius: 2px;
-  background: #efe0b8;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.pager button:hover:not(:disabled) {
+  border-color: rgba(35, 75, 58, 0.35);
+  background: #f4f8f5;
 }
 
 .pager {
-  background: #efe0b8;
-  border: 1px solid #5c4528;
-  border-top: none;
+  background: transparent;
+  border: 0;
+  padding: 0.15rem 0.1rem 0;
+}
+
+.line-english {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.line-english-label {
+  display: inline-block;
+  margin-inline-end: 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
 .vilna-page {
@@ -987,24 +1018,11 @@ button {
   min-height: 34rem;
   display: flex;
   flex-direction: column;
-  color: #111008;
-  background-color: #f6ecd0;
-  background-image:
-    radial-gradient(ellipse at 12% 8%, rgba(255, 252, 242, 0.7), transparent 46%),
-    radial-gradient(ellipse at 88% 96%, rgba(140, 108, 58, 0.08), transparent 50%),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(92, 68, 30, 0.015) 2px,
-      rgba(92, 68, 30, 0.015) 3px
-    );
-  border: 1px solid #3d2c18;
+  color: var(--daf-ink);
+  background: var(--daf);
+  border: 1px solid rgba(17, 17, 17, 0.18);
   overflow: auto;
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.28),
-    inset 0 0 0 1px rgba(255, 250, 235, 0.65),
-    inset 0 0 80px rgba(70, 48, 18, 0.05);
+  box-shadow: 0 10px 28px rgba(22, 36, 28, 0.08);
   animation: vilna-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -1026,8 +1044,8 @@ button {
   gap: 0.55rem;
   padding: 0.55rem 0.7rem 0.28rem;
   font-family: var(--font-hebrew);
-  color: #111008;
-  border-bottom: 1px solid rgba(40, 28, 14, 0.35);
+  color: var(--daf-ink);
+  border-bottom: 1px solid var(--daf-line);
 }
 
 .vilna-head-cell {
@@ -1076,60 +1094,21 @@ button {
 
 .vilna-rule span {
   height: 1px;
-  background: #24180e;
-  box-shadow: 0 2px 0 #24180e;
+  background: var(--daf-ink);
 }
 
 .vilna-rule i {
-  width: 0.48rem;
-  height: 0.48rem;
+  width: 0.38rem;
+  height: 0.38rem;
   display: block;
   font-style: normal;
-  background: #24180e;
+  background: var(--daf-ink);
   transform: rotate(45deg);
 }
 
 .vilna-rule-foot {
   padding: 0.35rem 0.85rem 0.5rem;
   margin-top: auto;
-}
-
-.vilna-english {
-  margin: 0;
-  padding: 0.35rem 0.85rem 0.45rem;
-  border-bottom: 1px solid rgba(40, 28, 14, 0.14);
-  background: linear-gradient(180deg, rgba(255, 252, 244, 0.85), rgba(246, 236, 208, 0.35));
-  color: #2a241c;
-  font-family: var(--font-display);
-  font-size: clamp(0.82rem, 1.35vw, 0.95rem);
-  font-weight: 500;
-  line-height: 1.45;
-  animation: english-in 280ms ease both;
-}
-
-@keyframes english-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.vilna-english-label {
-  display: inline-block;
-  margin-inline-end: 0.55rem;
-  padding-inline-end: 0.55rem;
-  border-inline-end: 1px solid rgba(40, 28, 14, 0.22);
-  font-family: var(--font-ui);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #6a5844;
-  vertical-align: baseline;
 }
 
 .vilna-sheet {
@@ -1147,11 +1126,11 @@ button {
   gap: 0.28rem;
   padding-top: 1.15rem;
   font-family: var(--font-hebrew);
-  font-size: 0.38rem;
+  font-size: 0.42rem;
   font-weight: 700;
   line-height: 1.12;
   text-align: center;
-  color: rgba(26, 18, 12, 0.72);
+  color: rgba(17, 17, 17, 0.72);
   overflow: hidden;
 }
 
@@ -1178,11 +1157,10 @@ button {
   left: 27.5%;
   width: 45%;
   z-index: 2;
-  background: #f6ecd0;
+  background: var(--daf);
   padding: 0.15rem 0.32rem 0.4rem;
   text-align: justify;
   hyphens: auto;
-  box-shadow: 0 0 0 1px rgba(40, 28, 14, 0.04);
 }
 
 .vilna-rashi-col,
@@ -1200,7 +1178,7 @@ button {
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: rgba(28, 20, 12, 0.55);
+  color: rgba(17, 17, 17, 0.45);
   pointer-events: none;
 }
 
@@ -1272,7 +1250,7 @@ button {
   font-size: clamp(0.58rem, 1.25vw, 0.78rem);
   font-weight: 500;
   line-height: 1.28;
-  color: #14100c;
+  color: var(--daf-ink);
   text-align: justify;
   overflow-wrap: anywhere;
   hyphens: auto;
@@ -1283,8 +1261,8 @@ button {
 }
 
 .vilna-note.focused {
-  background: rgba(42, 110, 168, 0.12);
-  box-shadow: inset 0 -1px 0 rgba(42, 110, 168, 0.45);
+  background: rgba(35, 75, 58, 0.08);
+  box-shadow: inset 0 -1px 0 rgba(35, 75, 58, 0.35);
 }
 
 .vilna-dibbur {
@@ -1323,12 +1301,12 @@ button {
 }
 
 .vilna-line:hover {
-  background: rgba(42, 110, 168, 0.08);
+  background: rgba(35, 75, 58, 0.05);
 }
 
 .vilna-line.active {
-  background: rgba(56, 132, 196, 0.18);
-  box-shadow: inset 0 -2px 0 rgba(42, 110, 168, 0.65);
+  background: rgba(35, 75, 58, 0.09);
+  box-shadow: inset 0 -2px 0 rgba(35, 75, 58, 0.45);
 }
 
 .vilna-line.mishnah {
@@ -1355,28 +1333,28 @@ button {
 }
 
 .daf-word.hl-reading {
-  background: rgba(56, 132, 196, 0.28);
-  box-shadow: inset 0 -2px 0 rgba(42, 110, 168, 0.75);
+  background: rgba(35, 75, 58, 0.14);
+  box-shadow: inset 0 -2px 0 rgba(35, 75, 58, 0.55);
 }
 
 .daf-word.hl-term {
-  box-shadow: inset 0 0 0 1.5px rgba(31, 78, 121, 0.55);
+  box-shadow: inset 0 0 0 1.5px rgba(35, 75, 58, 0.4);
 }
 
 .daf-word.hl-rashi {
-  background: rgba(47, 107, 79, 0.12);
-  box-shadow: inset 0 -2px 0 rgba(47, 107, 79, 0.55);
+  background: rgba(35, 75, 58, 0.07);
+  box-shadow: inset 0 -2px 0 rgba(35, 75, 58, 0.4);
 }
 
 .daf-word.hl-focus {
-  background: rgba(180, 60, 40, 0.1);
-  box-shadow: inset 0 0 0 1.5px rgba(154, 74, 46, 0.65);
+  background: rgba(155, 58, 50, 0.08);
+  box-shadow: inset 0 0 0 1.5px rgba(155, 58, 50, 0.45);
 }
 
 .daf-word.hl-term.hl-reading,
 .daf-word.hl-rashi.hl-reading,
 .daf-word.hl-focus.hl-reading {
-  background: rgba(56, 132, 196, 0.34);
+  background: rgba(35, 75, 58, 0.18);
 }
 
 .hear-btn.pulse {
@@ -1574,11 +1552,6 @@ button:disabled {
     font-size: 0.7rem;
   }
 
-  .vilna-english {
-    font-size: 0.8rem;
-    padding: 0.3rem 0.55rem 0.4rem;
-  }
-
   .vilna-sheet {
     grid-template-columns: 1.15rem minmax(0, 1fr) 1.15rem;
   }
@@ -1586,7 +1559,11 @@ button:disabled {
   .vilna-island {
     left: 24%;
     width: 52%;
-    background: #f6ecd0;
+    background: var(--daf);
+  }
+
+  .line-english {
+    font-size: 0.85rem;
   }
 
   .vilna-line {

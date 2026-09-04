@@ -111,14 +111,6 @@ function Gutter({ notes, label }: { notes: GutterNote[]; label: string }) {
   )
 }
 
-function cleanEnglish(text: string): string {
-  return text
-    .replace(/\s+/g, ' ')
-    .replace(/^MISHNA:\s*/i, '')
-    .replace(/^GEMARA:\s*/i, '')
-    .trim()
-}
-
 export function GemaraDaf({
   page,
   lineIndex,
@@ -133,7 +125,6 @@ export function GemaraDaf({
   const firstMishnah = page.hebrew.findIndex(
     (line, i) => line.trim() && isMishnahLine(page.english[i] || '', line),
   )
-  const english = cleanEnglish(page.english[lineIndex] || '')
 
   useLayoutEffect(() => {
     const el = islandRef.current
@@ -169,13 +160,6 @@ export function GemaraDaf({
         <i />
         <span />
       </div>
-
-      {english ? (
-        <p className="vilna-english" lang="en">
-          <span className="vilna-english-label">Translation</span>
-          {english}
-        </p>
-      ) : null}
 
       <div
         className="vilna-sheet"

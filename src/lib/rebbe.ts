@@ -90,6 +90,11 @@ export async function unlockAudio(): Promise<void> {
     try {
       window.speechSynthesis.cancel()
       window.speechSynthesis.getVoices()
+      // Warm the speech engine inside the user gesture.
+      const warm = new SpeechSynthesisUtterance(' ')
+      warm.volume = 0
+      window.speechSynthesis.speak(warm)
+      window.speechSynthesis.cancel()
     } catch {
       // ignore
     }
@@ -275,7 +280,7 @@ export async function playBrowserSpeech(
   })
 }
 
-/** Speak text: try browser first, then server WAV through speakers. */
+/** Speak text with the Rebbi voice: Gemini TTS first, browser fallback. */
 export async function speakTextAudibly(
   text: string,
   voice: string,
@@ -283,20 +288,19 @@ export async function speakTextAudibly(
 ): Promise<void> {
   const trimmed = text.trim()
   if (!trimmed) return
+
   try {
-    await playBrowserSpeech(trimmed, handlers)
-    return
+    const audio = await speakAgain(trimmed, voice)
+    if (audio.audioBase64 && audio.source !== 'browser') {
+      await playBase64Audio(audio, handlers)
+      return
+    }
   } catch {
-    // fall through
+    // fall through to browser speech
   }
-  const audio = await speakAgain(trimmed, voice)
-  if (audio.source === 'browser' || !audio.audioBase64) {
-    // Last attempt at browser again after reclaim
-    await reclaimPlaybackRoute()
-    await playBrowserSpeech(trimmed, handlers)
-    return
-  }
-  await playBase64Audio(audio, handlers)
+
+  await reclaimPlaybackRoute()
+  await playBrowserSpeech(trimmed, handlers)
 }
 
 export async function playBase64Audio(
