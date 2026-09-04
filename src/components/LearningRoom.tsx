@@ -15,10 +15,10 @@ import { StudentMic, looksHebrew, micSupported } from '../lib/mic'
 import {
   askRebbe,
   playBase64Audio,
-  reclaimPlaybackRoute,
   speakTextAudibly,
   stopSpeaking,
   unlockAudio,
+  prefetchSpeech,
   type ChatMessage,
   type RebbeResponse,
   type SpeakPayload,
@@ -27,8 +27,10 @@ import {
 import {
   adjacentDaf,
   defaultStartIndex,
+  enrichGemaraPage,
   fetchGemaraPage,
   notesForLine,
+  prefetchGemaraPage,
   type GemaraPage,
 } from '../lib/sefaria'
 import { AccountMenu } from './AccountMenu'
@@ -215,7 +217,6 @@ export function LearningRoom({
     }
     setSpeaking(true)
     stopMic()
-    await reclaimPlaybackRoute()
     try {
       await playBase64Audio(audio, {
         onDuration: (ms) => startReadingWalk(ms),
@@ -246,7 +247,6 @@ export function LearningRoom({
     setSpeaking(true)
     // Fully kill mic so iPhone leaves call-audio mode before speaking.
     stopMic()
-    await reclaimPlaybackRoute()
     try {
       if (opts?.audio) {
         await playAudio(opts.audio)
@@ -261,6 +261,7 @@ export function LearningRoom({
       setSpeaking(false)
       clearWalk()
       setNeedsGesture(false)
+      setError(null)
     } catch (err) {
       setSpeaking(false)
       clearWalk()
@@ -330,6 +331,12 @@ export function LearningRoom({
         setMessages((prev) => [...prev, { role: 'model', content: parts.join('\n\n') }])
       }
       return
+    }
+
+    // Warm Gemini backups while browser speaks the first lines.
+    if (lesson.hebrew) prefetchSpeech(lesson.hebrew, voiceRef.current)
+    if (lesson.english) {
+      prefetchSpeech(`That means: ${lesson.english}`, voiceRef.current)
     }
 
     if (lesson.welcome && !welcomedRef.current) {
@@ -584,6 +591,7 @@ export function LearningRoom({
         pageRef.current = data
         setLineIndex(start)
         lineRef.current = start
+        setLoadingPage(false)
         saveLearningProgress({
           tractateId,
           daf: data.daf,
@@ -593,12 +601,20 @@ export function LearningRoom({
           updatedAt: new Date().toISOString(),
         })
         void teachCurrentLine()
+        // Commentaries + neighbors load after the amud is already visible.
+        void enrichGemaraPage(data).then((full) => {
+          if (cancelled) return
+          setPage(full)
+          pageRef.current = full
+        })
+        prefetchGemaraPage(adjacentDaf(data.daf, 1))
+        prefetchGemaraPage(adjacentDaf(data.daf, -1))
       })
       .catch(() => {
-        if (!cancelled) setPageError('Could not open this page')
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingPage(false)
+        if (!cancelled) {
+          setPageError('Could not open this page')
+          setLoadingPage(false)
+        }
       })
     return () => {
       cancelled = true

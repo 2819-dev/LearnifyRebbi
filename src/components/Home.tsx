@@ -18,7 +18,7 @@ import {
   type LearningRequest,
 } from '../lib/account'
 import { unlockAudio } from '../lib/rebbe'
-import { normalizeDaf } from '../lib/sefaria'
+import { normalizeDaf, prefetchGemaraPage } from '../lib/sefaria'
 import { TalkModePicker } from './TalkModePicker'
 import { LearnPathPicker, type LearnPath } from './LearnPathPicker'
 import { AccountMenu, type AccountMenuItem } from './AccountMenu'
@@ -122,6 +122,12 @@ export function Home({
       cancelled = true
     }
   }, [account])
+
+  useEffect(() => {
+    // Warm the amud before Start / Resume so open feels instant.
+    prefetchGemaraPage(preview)
+    if (progress?.daf) prefetchGemaraPage(progress.daf)
+  }, [preview, progress?.daf])
 
   async function beginLearning(opts?: {
     daf?: string

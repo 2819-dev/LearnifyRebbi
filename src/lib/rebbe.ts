@@ -88,13 +88,7 @@ export async function unlockAudio(): Promise<void> {
 
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     try {
-      window.speechSynthesis.cancel()
       window.speechSynthesis.getVoices()
-      // Warm the speech engine inside the user gesture.
-      const warm = new SpeechSynthesisUtterance(' ')
-      warm.volume = 0
-      window.speechSynthesis.speak(warm)
-      window.speechSynthesis.cancel()
     } catch {
       // ignore
     }
@@ -127,7 +121,7 @@ export async function reclaimPlaybackRoute(): Promise<void> {
   } catch {
     // ignore
   }
-  await new Promise((r) => setTimeout(r, 120))
+  await new Promise((r) => setTimeout(r, 40))
 }
 
 export function isAudioUnlocked(): boolean {
@@ -280,7 +274,13 @@ export async function playBrowserSpeech(
   })
 }
 
-/** Speak text with the Rebbi voice: Gemini TTS first, browser fallback. */
+const ttsCache = new Map<string, SpeakPayload>()
+
+function ttsCacheKey(text: string, voice: string) {
+  return `${voice}::${text}`
+}
+
+/** Speak immediately with browser TTS; Gemini is the backup (and for Hebrew if needed). */
 export async function speakTextAudibly(
   text: string,
   voice: string,
@@ -289,18 +289,52 @@ export async function speakTextAudibly(
   const trimmed = text.trim()
   if (!trimmed) return
 
-  try {
-    const audio = await speakAgain(trimmed, voice)
-    if (audio.audioBase64 && audio.source !== 'browser') {
-      await playBase64Audio(audio, handlers)
+  const wantHe = Boolean(handlers?.lang?.toLowerCase().startsWith('he'))
+  const hasHeVoice = wantHe ? Boolean(pickBrowserVoice('he-IL')) : true
+  const canTryBrowser =
+    typeof window !== 'undefined' &&
+    Boolean(window.speechSynthesis) &&
+    (!wantHe || hasHeVoice)
+
+  if (canTryBrowser) {
+    try {
+      await playBrowserSpeech(trimmed, handlers)
       return
+    } catch {
+      // fall through to Gemini
     }
-  } catch {
-    // fall through to browser speech
+  }
+
+  const cached = ttsCache.get(ttsCacheKey(trimmed, voice))
+  if (cached?.audioBase64) {
+    await playBase64Audio(cached, handlers)
+    return
+  }
+
+  const audio = await speakAgain(trimmed, voice)
+  if (audio.audioBase64 && audio.source !== 'browser') {
+    ttsCache.set(ttsCacheKey(trimmed, voice), audio)
+    await playBase64Audio(audio, handlers)
+    return
   }
 
   await reclaimPlaybackRoute()
   await playBrowserSpeech(trimmed, handlers)
+}
+
+/** Prefetch Gemini audio for a phrase (does not play). */
+export function prefetchSpeech(text: string, voice: string): void {
+  const trimmed = text.trim()
+  if (!trimmed) return
+  const key = ttsCacheKey(trimmed, voice)
+  if (ttsCache.has(key)) return
+  void speakAgain(trimmed, voice)
+    .then((audio) => {
+      if (audio.audioBase64 && audio.source !== 'browser') {
+        ttsCache.set(key, audio)
+      }
+    })
+    .catch(() => {})
 }
 
 export async function playBase64Audio(

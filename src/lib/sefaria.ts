@@ -24,7 +24,12 @@ export type GemaraPage = {
   tosafot: CommentaryNote[]
   einMishpat: GutterNote[]
   masoret: GutterNote[]
+  /** True after commentary columns have been loaded. */
+  commentariesReady?: boolean
 }
+
+const pageCache = new Map<string, GemaraPage>()
+const inflight = new Map<string, Promise<GemaraPage>>()
 
 function stripHtml(html: string): string {
   return html
@@ -147,15 +152,7 @@ function isMasoret(item: Record<string, unknown>): boolean {
   return /Masoret HaShas|Mesoret HaShas|Masoret HaTosefta/i.test(t)
 }
 
-export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
-  const ref = buildBavaMetziaRef(daf)
-  const res = await fetch(
-    `https://www.sefaria.org/api/texts/${ref}?context=0&commentary=1&ven=William_Davidson_Edition_-_English&vhe=William_Davidson_Edition_-_Vocalized_Aramaic`,
-  )
-  if (!res.ok) {
-    throw new Error(`Could not load ${ref} from Sefaria (${res.status})`)
-  }
-  const data = await res.json()
+function parseTextPayload(data: Record<string, unknown>, daf: string): GemaraPage {
   const hebrewRaw: unknown[] = Array.isArray(data.he) ? data.he : []
   const englishRaw: unknown[] = Array.isArray(data.text) ? data.text : []
   const len = Math.max(hebrewRaw.length, englishRaw.length)
@@ -170,6 +167,7 @@ export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
   }
 
   const commentary = Array.isArray(data.commentary) ? data.commentary : []
+  const hasCommentary = commentary.length > 0
   const rashi = mapNotes(
     commentary.filter((x: Record<string, unknown>) => isRashi(x)),
     'Rashi',
@@ -187,8 +185,8 @@ export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
   const normalized = normalizeDaf(daf)
 
   return {
-    ref: data.ref || `Bava Metzia ${normalized}`,
-    heRef: data.heRef || '',
+    ref: String(data.ref || `Bava Metzia ${normalized}`),
+    heRef: String(data.heRef || ''),
     heIndexTitle: String(data.heIndexTitle || 'בבא מציעא'),
     daf: normalized,
     hebrew,
@@ -198,7 +196,72 @@ export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
     tosafot,
     einMishpat,
     masoret,
+    commentariesReady: hasCommentary,
   }
+}
+
+async function fetchSefariaJson(daf: string, commentary: 0 | 1) {
+  const ref = buildBavaMetziaRef(daf)
+  const res = await fetch(
+    `https://www.sefaria.org/api/texts/${ref}?context=0&commentary=${commentary}&ven=William_Davidson_Edition_-_English&vhe=William_Davidson_Edition_-_Vocalized_Aramaic`,
+  )
+  if (!res.ok) {
+    throw new Error(`Could not load ${ref} from Sefaria (${res.status})`)
+  }
+  return (await res.json()) as Record<string, unknown>
+}
+
+/** Fast open: Gemara text only (~30KB). Commentaries load via enrichGemaraPage. */
+export async function fetchGemaraPage(daf: string): Promise<GemaraPage> {
+  const key = normalizeDaf(daf)
+  const cached = pageCache.get(key)
+  if (cached?.hebrew.length) return cached
+
+  const existing = inflight.get(key)
+  if (existing) return existing
+
+  const promise = fetchSefariaJson(key, 0)
+    .then((data) => {
+      const page = parseTextPayload(data, key)
+      pageCache.set(key, page)
+      return page
+    })
+    .finally(() => {
+      inflight.delete(key)
+    })
+  inflight.set(key, promise)
+  return promise
+}
+
+/** Load Rashi / Tosafot / gutters after the amud is already on screen. */
+export async function enrichGemaraPage(page: GemaraPage): Promise<GemaraPage> {
+  if (page.commentariesReady) return page
+  const key = normalizeDaf(page.daf)
+  try {
+    const data = await fetchSefariaJson(key, 1)
+    const full = parseTextPayload(data, key)
+    const merged: GemaraPage = {
+      ...page,
+      ...full,
+      hebrew: page.hebrew.length ? page.hebrew : full.hebrew,
+      english: page.english.length ? page.english : full.english,
+      leadBig: page.leadBig.length ? page.leadBig : full.leadBig,
+      commentariesReady: true,
+    }
+    pageCache.set(key, merged)
+    return merged
+  } catch {
+    return { ...page, commentariesReady: true }
+  }
+}
+
+/** Warm the next/previous amud in the background. */
+export function prefetchGemaraPage(daf: string): void {
+  const key = normalizeDaf(daf)
+  if (pageCache.has(key) || inflight.has(key)) return
+  void fetchGemaraPage(key).then((page) => {
+    void enrichGemaraPage(page)
+  })
 }
 
 export function notesForLine(
