@@ -31,6 +31,7 @@ import {
   notesForLine,
   type GemaraPage,
 } from '../lib/sefaria'
+import { AccountMenu } from './AccountMenu'
 
 type Props = {
   daf: string
@@ -734,21 +735,39 @@ export function LearningRoom({
 
   return (
     <div className="shell room">
+      <AccountMenu
+        items={[
+          ...(onShowTour
+            ? [
+                {
+                  id: 'tour',
+                  label: 'How it works',
+                  onClick: onShowTour,
+                },
+              ]
+            : []),
+          ...(onOpenSupport
+            ? [
+                {
+                  id: 'support',
+                  label: 'Support',
+                  onClick: onOpenSupport,
+                },
+              ]
+            : []),
+          {
+            id: 'leave',
+            label: 'Leave learning',
+            onClick: onExit,
+            tone: 'quiet' as const,
+          },
+        ]}
+      />
       <header className="room-bar">
         <div className="room-brand">
           <button type="button" className="linkish" onClick={onExit}>
             {APP_NAME}
           </button>
-          {onShowTour && (
-            <button type="button" className="linkish tiny" onClick={onShowTour}>
-              How it works
-            </button>
-          )}
-          {onOpenSupport && (
-            <button type="button" className="linkish tiny" onClick={onOpenSupport}>
-              Support
-            </button>
-          )}
         </div>
         <div className="room-meta">
           <h1>{page?.ref || `Bava Metzia ${daf}`}</h1>
