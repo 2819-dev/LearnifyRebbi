@@ -10,7 +10,7 @@ export function AppMark({ size = 'sm', className = '' }: Props) {
   return (
     <img
       className={`app-mark app-mark-${size}${className ? ` ${className}` : ''}`}
-      src="/favicon.svg?v=2"
+      src="/favicon.svg?v=3"
       width={size === 'md' ? 36 : 28}
       height={size === 'md' ? 36 : 28}
       alt={APP_NAME}
