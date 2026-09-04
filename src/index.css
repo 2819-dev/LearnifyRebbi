@@ -1275,14 +1275,29 @@ button {
 .onboard-btns {
   display: flex;
   gap: 0.45rem;
+  align-items: center;
 }
 
 .onboard-btns button {
   border: 1px solid var(--line);
   background: var(--panel);
+  color: var(--ink);
   border-radius: var(--radius);
   padding: 0.65rem 1rem;
   font-weight: 700;
+}
+
+.onboard-btns .btn-main {
+  background: linear-gradient(180deg, #2d5d49 0%, var(--accent) 100%);
+  color: #f3f7f4;
+  border-color: transparent;
+}
+
+.onboard-btns .linkish {
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.55rem;
+  font-weight: 600;
 }
 
 button:disabled {
