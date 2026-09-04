@@ -2,9 +2,9 @@ import { fail, json, optionsResponse } from '../_shared/http.ts'
 import {
   generateRebbeReply,
   lessonResponse,
-  REBBE_VOICES,
   synthesizeRebbeSpeech,
-} from './_shared/rebbe.ts'
+} from '../_shared/rebbe.ts'
+import { REBBE_VOICES } from '../_shared/rebbe-lib.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return optionsResponse()
