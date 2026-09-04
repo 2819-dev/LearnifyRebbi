@@ -1,5 +1,6 @@
 import { httpError } from './http.ts'
 import { trainingHintsForPrompt } from './hints.ts'
+import { synthesizeEdgeMaleMp3 } from './edge-tts.ts'
 import {
   SYSTEM_PROMPT,
   REBBE_VOICES,
@@ -271,7 +272,20 @@ async function requestGroqSpeech(apiKey: string, spoken: string, guideVoice: str
   }
 }
 
-/** Free no-key TTS via Google Translate (chunked MP3). */
+/** Free Microsoft Edge neural TTS — warm adult male voice (no API key). */
+async function requestEdgeMaleSpeech(spoken: string, guideVoice: string) {
+  const buf = await synthesizeEdgeMaleMp3(spoken, guideVoice)
+  if (!buf.length) throw httpError('No audio returned from Edge TTS', 500)
+  return {
+    mimeType: 'audio/mpeg',
+    audioBase64: bytesToBase64(buf),
+    voice: guideVoice,
+    source: 'edge',
+    text: spoken,
+  }
+}
+
+/** Free no-key TTS via Google Translate (chunked MP3) — more robotic fallback. */
 function splitSpeechChunks(text: string, max = 160): string[] {
   const parts = String(text || '')
     .replace(/\s+/g, ' ')
@@ -352,16 +366,25 @@ export async function synthesizeRebbeSpeech(text: unknown, voiceName = 'Charon')
 
   const errors: string[] = []
 
-  // 1) Free Google Translate TTS — no API key, avoids Gemini free-tier silence
+  // 1) Free Edge neural TTS — nice adult male voice (Andrew / Christopher / …)
+  try {
+    return await withRetry(async () => requestEdgeMaleSpeech(spoken, voice), 2)
+  } catch (err) {
+    const msg = String((err as { message?: string })?.message || err)
+    console.error('Edge neural TTS failed', msg)
+    errors.push(msg)
+  }
+
+  // 2) Free Google Translate TTS — robotic fallback if Edge is blocked
   try {
     return await withRetry(async () => requestFreeGoogleSpeech(spoken, voice), 2)
   } catch (err) {
     const msg = String((err as { message?: string })?.message || err)
-    console.error('Free TTS failed', msg)
+    console.error('Free Google TTS failed', msg)
     errors.push(msg)
   }
 
-  // 2) Groq Orpheus (optional key) — fast when billed/available
+  // 3) Groq Orpheus (optional key) — fast when billed/available
   const groq = await groqKey()
   if (groq) {
     try {
@@ -373,7 +396,7 @@ export async function synthesizeRebbeSpeech(text: unknown, voiceName = 'Charon')
     }
   }
 
-  // 3) Gemini TTS (optional key) — quality, but free-tier often capped
+  // 4) Gemini TTS (optional key) — quality, but free-tier often capped
   const gemini = await geminiKey()
   if (gemini) {
     const models = await ttsModelCandidates()

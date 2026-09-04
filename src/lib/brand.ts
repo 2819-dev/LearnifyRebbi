@@ -105,22 +105,22 @@ export const REBBE_VOICES = [
   {
     id: 'Charon',
     label: 'Teacher',
-    blurb: 'Warm professional man.',
+    blurb: 'Warm, clear man.',
   },
   {
     id: 'Sadaltager',
     label: 'Steady',
-    blurb: 'Clear and knowledgeable.',
+    blurb: 'Patient adult man.',
   },
   {
     id: 'Schedar',
     label: 'Even',
-    blurb: 'Calm and measured.',
+    blurb: 'Calm measured man.',
   },
   {
     id: 'Gacrux',
     label: 'Warm',
-    blurb: 'Gentle pacing.',
+    blurb: 'Gentle soft man.',
   },
 ] as const
 
