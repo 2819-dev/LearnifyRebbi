@@ -3,15 +3,20 @@ import {
   claimLearningRequest,
   closeLearningRequest,
   fetchRabbiLearningRequests,
+  fetchRabbiWaitMessages,
   learningRequestStatusLabel,
+  setAcceptingStudents,
+  updateRabbiWaitMessage,
   type Account,
   type LearningRequest,
+  type RabbiWaitMessage,
 } from '../lib/account'
 import { APP_NAME } from '../lib/brand'
 
 type Props = {
   account: Account
   onBack: () => void
+  onAccountChange?: (account: Account) => void
 }
 
 function formatContact(value: string | null | undefined) {
@@ -20,17 +25,25 @@ function formatContact(value: string | null | undefined) {
   return raw
 }
 
-export function RabbiPanel({ account, onBack }: Props) {
+export function RabbiPanel({ account, onBack, onAccountChange }: Props) {
   const [requests, setRequests] = useState<LearningRequest[]>([])
+  const [waitMessages, setWaitMessages] = useState<RabbiWaitMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [actionId, setActionId] = useState<string | null>(null)
+  const [accepting, setAccepting] = useState(account.acceptingStudents !== false)
+  const [toggling, setToggling] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function refresh() {
     setLoading(true)
     setError(null)
     try {
-      setRequests(await fetchRabbiLearningRequests())
+      const [nextRequests, nextWait] = await Promise.all([
+        fetchRabbiLearningRequests(),
+        fetchRabbiWaitMessages().catch(() => [] as RabbiWaitMessage[]),
+      ])
+      setRequests(nextRequests)
+      setWaitMessages(nextWait.filter((m) => m.status === 'open'))
     } catch (err) {
       setError(
         err instanceof Error
@@ -44,6 +57,10 @@ export function RabbiPanel({ account, onBack }: Props) {
 
   useEffect(() => {
     void refresh()
+    const id = window.setInterval(() => {
+      void refresh()
+    }, 20000)
+    return () => window.clearInterval(id)
   }, [])
 
   async function runAction(
@@ -93,6 +110,44 @@ export function RabbiPanel({ account, onBack }: Props) {
       {error && <p className="bad">{error}</p>}
 
       <section className="panel-card">
+        <h2>Availability</h2>
+        <p className="lede panel-lede">
+          When you are accepting students, learners can request to learn with
+          you.
+        </p>
+        <label className="accepting-toggle">
+          <input
+            type="checkbox"
+            checked={accepting}
+            disabled={toggling}
+            onChange={async (e) => {
+              const next = e.target.checked
+              setToggling(true)
+              setError(null)
+              try {
+                const updated = await setAcceptingStudents(next)
+                setAccepting(updated.acceptingStudents !== false)
+                onAccountChange?.(updated)
+              } catch (err) {
+                setError(
+                  err instanceof Error
+                    ? err.message
+                    : 'Could not update availability.',
+                )
+              } finally {
+                setToggling(false)
+              }
+            }}
+          />
+          <span>
+            {accepting
+              ? 'Accepting students right now'
+              : 'Not accepting students'}
+          </span>
+        </label>
+      </section>
+
+      <section className="panel-card">
         <h2>Student requests</h2>
         <p className="lede panel-lede">
           Accept a waiting request to get the student’s phone number. Reach out
@@ -134,13 +189,13 @@ export function RabbiPanel({ account, onBack }: Props) {
                   {r.status === 'open' && (
                     <button
                       type="button"
-                      disabled={busy}
+                      disabled={busy || !accepting}
                       onClick={() => void runAction(r.id, 'claim')}
                     >
                       {busy ? 'Working…' : 'Accept'}
                     </button>
                   )}
-                  {r.status !== 'closed' && (
+                  {r.status !== 'closed' && r.status !== 'cancelled' && (
                     <button
                       type="button"
                       disabled={busy}
@@ -154,6 +209,51 @@ export function RabbiPanel({ account, onBack }: Props) {
             )
           })}
         </ul>
+      </section>
+
+      <section className="panel-card">
+        <h2>Waiting students</h2>
+        <p className="lede panel-lede">
+          Notes left when no Rebbeim were available. Open your desk if you can
+          help.
+        </p>
+        {waitMessages.length === 0 ? (
+          <p className="soft">No waiting notes right now.</p>
+        ) : (
+          <ul className="ticket-list">
+            {waitMessages.map((m) => (
+              <li key={m.id}>
+                <div className="ticket-top">
+                  <strong>{m.name}</strong>
+                  <span className="ticket-status open">Waiting</span>
+                </div>
+                <p>{m.message}</p>
+                <p className="soft">{new Date(m.createdAt).toLocaleString()}</p>
+                <div className="ticket-actions">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await updateRabbiWaitMessage(m.id, 'closed')
+                        setWaitMessages((prev) =>
+                          prev.filter((row) => row.id !== m.id),
+                        )
+                      } catch (err) {
+                        setError(
+                          err instanceof Error
+                            ? err.message
+                            : 'Could not update that note.',
+                        )
+                      }
+                    }}
+                  >
+                    Mark seen
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   )

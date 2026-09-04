@@ -31,6 +31,7 @@ type Session = {
   voiceId: string
   tractateId: string
   talkMode: TalkMode
+  lineIndex?: number
 } | null
 
 type View =
@@ -462,7 +463,7 @@ export default function App() {
         </div>
       )
     }
-    return <RabbiPanel account={account} onBack={() => go('home')} />
+    return <RabbiPanel account={account} onBack={() => go('home')} onAccountChange={setAccount} />
   }
 
   if (view === 'rebbe-request') {
@@ -533,19 +534,36 @@ export default function App() {
 
   if (session) {
     return (
-      <LearningRoom
-        daf={session.daf}
-        voiceId={session.voiceId || REBBE_VOICES[0].id}
-        talkMode={session.talkMode}
-        onVoiceIdChange={(voiceId) =>
-          setSession((prev) => (prev ? { ...prev, voiceId } : prev))
-        }
-        onTalkModeChange={(talkMode) =>
-          setSession((prev) => (prev ? { ...prev, talkMode } : prev))
-        }
-        onExit={() => setSession(null)}
-        onShowTour={() => setShowOnboarding(true)}
-      />
+      <>
+        <LearningRoom
+          daf={session.daf}
+          tractateId={session.tractateId}
+          voiceId={session.voiceId || REBBE_VOICES[0].id}
+          talkMode={session.talkMode}
+          startLineIndex={session.lineIndex}
+          onVoiceIdChange={(voiceId) =>
+            setSession((prev) => (prev ? { ...prev, voiceId } : prev))
+          }
+          onTalkModeChange={(talkMode) =>
+            setSession((prev) => (prev ? { ...prev, talkMode } : prev))
+          }
+          onDafChange={(daf) =>
+            setSession((prev) =>
+              prev ? { ...prev, daf, lineIndex: undefined } : prev,
+            )
+          }
+          onExit={() => setSession(null)}
+          onShowTour={() => setShowOnboarding(true)}
+          onOpenSupport={() => setShowSupport(true)}
+        />
+        {showSupport && (
+          <SupportForm
+            defaultName={account?.username}
+            defaultPhone=""
+            onClose={() => setShowSupport(false)}
+          />
+        )}
+      </>
     )
   }
 
@@ -553,8 +571,8 @@ export default function App() {
     <>
       <Home
         account={account}
-        onStart={({ daf, voiceId, tractateId, talkMode }) => {
-          setSession({ daf, voiceId, tractateId, talkMode })
+        onStart={({ daf, voiceId, tractateId, talkMode, lineIndex }) => {
+          setSession({ daf, voiceId, tractateId, talkMode, lineIndex })
         }}
         onLearnWithRebbi={openLearnWithRebbi}
         onShowTour={() => setShowOnboarding(true)}

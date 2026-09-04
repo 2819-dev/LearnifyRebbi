@@ -24,6 +24,7 @@ export type AccountRow = {
   rabbi_display_name?: string
   rabbi_bio?: string
   rabbi_answers?: Record<string, unknown>
+  accepting_students?: boolean
 }
 
 export type PublicAccount = {
@@ -34,6 +35,7 @@ export type PublicAccount = {
   rabbiStatus: RabbiStatus
   rabbiDisplayName: string
   rabbiBio: string
+  acceptingStudents: boolean
 }
 
 export type PublicTicket = {
@@ -63,7 +65,7 @@ export type PublicLearningRequest = {
   rabbiDisplayName: string | null
   rebbiContact: string | null
   message: string
-  status: 'open' | 'claimed' | 'closed'
+  status: 'open' | 'claimed' | 'closed' | 'cancelled'
   createdAt: string
   updatedAt: string
 }
@@ -88,7 +90,7 @@ export type PublicRabbiApplication = {
 }
 
 export const ACCOUNT_COLS =
-  'id, username, phone, password_hash, role, created_at, rabbi_status, rabbi_display_name, rabbi_bio, rabbi_answers'
+  'id, username, phone, password_hash, role, created_at, rabbi_status, rabbi_display_name, rabbi_bio, rabbi_answers, accepting_students'
 
 export function iso(value: unknown): string {
   return new Date(value as string).toISOString()
@@ -112,6 +114,7 @@ export function publicAccount(account: AccountRow | null): PublicAccount | null 
     rabbiStatus: rabbiStatusOf(account),
     rabbiDisplayName: String(account.rabbi_display_name || ''),
     rabbiBio: String(account.rabbi_bio || ''),
+    acceptingStudents: account.accepting_students !== false,
   }
 }
 
@@ -145,7 +148,7 @@ export function publicLearningRequest(row: {
   rabbi_display_name?: string | null
   rebbi_contact?: string | null
   message: string
-  status: 'open' | 'claimed' | 'closed'
+  status: 'open' | 'claimed' | 'closed' | 'cancelled'
   created_at: string
   updated_at: string
 }): PublicLearningRequest {

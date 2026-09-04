@@ -195,6 +195,141 @@ button {
   animation: in 720ms 60ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.account-nav {
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+
+.account-greeting {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-toggle {
+  width: 2.55rem;
+  height: 2.55rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 252, 247, 0.72);
+  display: grid;
+  place-content: center;
+  gap: 0.28rem;
+  padding: 0;
+  flex: 0 0 auto;
+  box-shadow: 0 1px 0 var(--edge);
+}
+
+.menu-toggle span {
+  display: block;
+  width: 1.05rem;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.menu-toggle.open span:nth-child(1) {
+  transform: translateY(0.34rem) rotate(45deg);
+}
+
+.menu-toggle.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle.open span:nth-child(3) {
+  transform: translateY(-0.34rem) rotate(-45deg);
+}
+
+.account-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+.account-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(20, 24, 28, 0.34);
+  cursor: pointer;
+}
+
+.account-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(19.5rem, 88vw);
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: -18px 0 40px rgba(20, 24, 28, 0.12);
+  padding: 1.15rem 1.1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  animation: drawer-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(1.1rem);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.account-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.account-drawer-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+}
+
+.account-drawer-greeting {
+  margin: 0;
+}
+
+.account-drawer-nav {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.account-drawer-link {
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: start;
+  padding: 0.8rem 0.85rem;
+  border-radius: var(--radius);
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.account-drawer-link:hover,
+.account-drawer-link:focus-visible {
+  background: rgba(35, 75, 58, 0.08);
+  border-color: rgba(35, 75, 58, 0.16);
+}
+
+.account-drawer-link.quiet {
+  font-weight: 600;
+  color: var(--quiet);
+}
+
 .home-nav .soft {
   margin-right: 0.1rem;
 }
@@ -430,6 +565,65 @@ button {
   border: 1px solid rgba(35, 75, 58, 0.22);
   border-radius: var(--radius);
   color: var(--accent);
+}
+
+.continue-banner {
+  margin: 1.1rem 0 0;
+  padding: 0.95rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(35, 75, 58, 0.22);
+  background: rgba(35, 75, 58, 0.08);
+  border-radius: var(--radius);
+}
+
+.continue-label {
+  margin: 0;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.continue-banner .btn-main {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 0.65rem 1rem;
+}
+
+.match-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.accepting-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 600;
+  margin-top: 0.35rem;
+}
+
+.accepting-toggle input {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.amud-pager {
+  margin-top: 0.45rem;
+}
+
+.ticket-status.cancelled {
+  color: var(--quiet);
+}
+
+@media (max-width: 640px) {
+  .continue-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .match-contact {

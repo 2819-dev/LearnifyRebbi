@@ -42,12 +42,21 @@ export async function createRabbiWaitMessage(input: {
 }
 
 export async function listRabbiWaitMessages(token: string) {
-  await requireRole(token, ['admin'])
+  const account = await accountFromToken(token)
+  if (!account) throw httpError('Please sign in', 401)
+  const isAdmin = account.role === 'admin'
+  const isRabbi =
+    account.role === 'rabbi' && account.rabbiStatus === 'approved'
+  if (!isAdmin && !isRabbi) {
+    throw httpError('Your teaching desk is not open yet', 403)
+  }
   const rows = await query(
     `select id, account_id, name, message, status, created_at
      from guide.rabbi_messages
+     where $1 or status = 'open'
      order by created_at desc
      limit 200`,
+    [isAdmin],
   )
   return (rows as Parameters<typeof publicRabbiMessage>[0][]).map(publicRabbiMessage)
 }

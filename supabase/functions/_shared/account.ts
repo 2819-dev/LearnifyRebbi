@@ -13,6 +13,7 @@ import {
 } from './account-core.ts'
 import {
   claimLearningRequest,
+  cancelLearningRequest,
   closeLearningRequest,
   createLearningRequest,
   listAvailableRabbis,
@@ -20,6 +21,7 @@ import {
   listPendingRabbis,
   listRabbiLearningRequests,
   reviewRabbi,
+  setAcceptingStudents,
 } from './account-rabbi.ts'
 import {
   addTraining,
@@ -60,6 +62,11 @@ export async function handleAccountAction(
   if (action === 'availableRabbis') {
     return { rabbis: await listAvailableRabbis() }
   }
+  if (action === 'setAcceptingStudents') {
+    return {
+      account: await setAcceptingStudents(token, body.accepting),
+    }
+  }
   if (action === 'createLearningRequest') {
     return {
       request: await createLearningRequest(token, body.message),
@@ -79,6 +86,11 @@ export async function handleAccountAction(
   if (action === 'closeLearningRequest') {
     return {
       request: await closeLearningRequest(token, body.requestId),
+    }
+  }
+  if (action === 'cancelLearningRequest') {
+    return {
+      request: await cancelLearningRequest(token, body.requestId),
     }
   }
   if (action === 'createRabbiMessage') {

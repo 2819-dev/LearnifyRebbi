@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { GemaraDaf } from './GemaraDaf'
 import { TalkModePicker } from './TalkModePicker'
-import { APP_NAME, REBBE_VOICES, saveTalkMode, type TalkMode } from '../lib/brand'
+import { APP_NAME, REBBE_VOICES, saveLearningProgress, saveTalkMode, type TalkMode } from '../lib/brand'
 import { HIGHLIGHT_TERM_HINTS } from '../lib/curriculum'
 import {
   chunkPhrase,
@@ -25,6 +25,7 @@ import {
   type TextHighlight,
 } from '../lib/rebbe'
 import {
+  adjacentDaf,
   defaultStartIndex,
   fetchGemaraPage,
   notesForLine,
@@ -33,12 +34,16 @@ import {
 
 type Props = {
   daf: string
+  tractateId: string
   voiceId: string
   talkMode: TalkMode
+  startLineIndex?: number
   onExit: () => void
   onVoiceIdChange: (id: string) => void
   onTalkModeChange: (mode: TalkMode) => void
+  onDafChange: (daf: string) => void
   onShowTour?: () => void
+  onOpenSupport?: () => void
 }
 
 type DrillPhase = 'idle' | 'listening-repeat'
@@ -90,12 +95,16 @@ function roughlyMatches(heard: string, target: string): boolean {
 
 export function LearningRoom({
   daf,
+  tractateId,
   voiceId,
   talkMode,
+  startLineIndex,
   onExit,
   onVoiceIdChange,
   onTalkModeChange,
+  onDafChange,
   onShowTour,
+  onOpenSupport,
 }: Props) {
   const [page, setPage] = useState<GemaraPage | null>(null)
   const [lineIndex, setLineIndex] = useState(0)
@@ -559,14 +568,28 @@ export function LearningRoom({
     setHighlights(null)
     setPhase('idle')
     stopMic()
+    const preferredStart = startLineIndex
     fetchGemaraPage(daf)
       .then((data) => {
         if (cancelled) return
-        const start = defaultStartIndex(daf, data.english)
+        const start =
+          typeof preferredStart === 'number' &&
+          preferredStart >= 0 &&
+          preferredStart < data.hebrew.length
+            ? preferredStart
+            : defaultStartIndex(daf, data.english)
         setPage(data)
         pageRef.current = data
         setLineIndex(start)
         lineRef.current = start
+        saveLearningProgress({
+          tractateId,
+          daf: data.daf,
+          lineIndex: start,
+          voiceId: voiceRef.current,
+          talkMode: talkModeRef.current,
+          updatedAt: new Date().toISOString(),
+        })
         void teachCurrentLine()
       })
       .catch(() => {
@@ -585,6 +608,17 @@ export function LearningRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [daf])
 
+  function persistProgress(nextLine: number, nextDaf = daf) {
+    saveLearningProgress({
+      tractateId,
+      daf: nextDaf,
+      lineIndex: nextLine,
+      voiceId: voiceRef.current,
+      talkMode: talkModeRef.current,
+      updatedAt: new Date().toISOString(),
+    })
+  }
+
   function goLine(nextIndex: number) {
     const current = pageRef.current
     if (!current) return
@@ -596,7 +630,18 @@ export function LearningRoom({
     setPhase('idle')
     setLineIndex(nextIndex)
     lineRef.current = nextIndex
+    persistProgress(nextIndex)
     void teachCurrentLine()
+  }
+
+  function turnAmud(delta: -1 | 1) {
+    if (busy) return
+    stopSpeaking()
+    stopMic()
+    clearWalk()
+    setSpeaking(false)
+    setPhase('idle')
+    onDafChange(adjacentDaf(daf, delta))
   }
 
   function toggleMicAsk() {
@@ -699,6 +744,11 @@ export function LearningRoom({
               How it works
             </button>
           )}
+          {onOpenSupport && (
+            <button type="button" className="linkish tiny" onClick={onOpenSupport}>
+              Support
+            </button>
+          )}
         </div>
         <div className="room-meta">
           <h1>{page?.ref || `Bava Metzia ${daf}`}</h1>
@@ -773,14 +823,30 @@ export function LearningRoom({
                 disabled={lineIndex <= 0 || busy}
                 onClick={() => goLine(lineIndex - 1)}
               >
-                Previous
+                Previous line
               </button>
               <button
                 type="button"
                 disabled={lineIndex >= page.hebrew.length - 1 || busy}
                 onClick={() => goLine(lineIndex + 1)}
               >
-                Next
+                Next line
+              </button>
+            </div>
+            <div className="pager amud-pager">
+              <button
+                type="button"
+                disabled={busy || loadingPage || daf === '2a'}
+                onClick={() => turnAmud(-1)}
+              >
+                ← Previous amud
+              </button>
+              <button
+                type="button"
+                disabled={busy || loadingPage || daf === '119b'}
+                onClick={() => turnAmud(1)}
+              >
+                Next amud →
               </button>
             </div>
           </section>

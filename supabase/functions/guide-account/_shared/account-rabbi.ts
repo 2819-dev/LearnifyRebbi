@@ -71,6 +71,7 @@ export async function listAvailableRabbis() {
     `select id, username, rabbi_display_name, rabbi_bio
      from guide.accounts
      where role = 'rabbi' and rabbi_status = 'approved'
+       and accepting_students is not false
      order by lower(coalesce(nullif(rabbi_display_name, ''), username)) asc`,
   )
   return rows.map(
@@ -81,6 +82,20 @@ export async function listAvailableRabbis() {
       bio: String(row.rabbi_bio || ''),
     }),
   )
+}
+
+export async function setAcceptingStudents(token: string, acceptingRaw: unknown) {
+  const account = await requireApprovedRabbi(token)
+  const accepting = Boolean(acceptingRaw)
+  const rows = await query<AccountRow>(
+    `update guide.accounts
+     set accepting_students = $2
+     where id = $1::uuid
+     returning ${ACCOUNT_COLS}`,
+    [account.id, accepting],
+  )
+  if (!rows[0]) throw httpError('Could not update availability', 500)
+  return publicAccount(rows[0])
 }
 
 export async function createLearningRequest(token: string, messageRaw: unknown) {
@@ -234,7 +249,7 @@ export async function closeLearningRequest(token: string, requestId: unknown) {
       student_id: string
       rabbi_id: string | null
       message: string
-      status: 'open' | 'claimed' | 'closed'
+      status: 'open' | 'claimed' | 'closed' | 'cancelled'
       created_at: string
       updated_at: string
     }),
@@ -243,6 +258,37 @@ export async function closeLearningRequest(token: string, requestId: unknown) {
     rabbi_username: meta[0]?.rabbi_username || null,
     rabbi_display_name: meta[0]?.rabbi_display_name || null,
     rebbi_contact: meta[0]?.rebbi_contact || null,
+  })
+}
+
+export async function cancelLearningRequest(token: string, requestId: unknown) {
+  const account = await accountFromToken(token)
+  if (!account) throw httpError('Please sign in', 401)
+  const rows = await query(
+    `update guide.learning_requests
+     set status = 'cancelled', updated_at = now()
+     where id = $1::uuid and student_id = $2::uuid and status = 'open'
+     returning id, student_id, rabbi_id, message, status, created_at, updated_at`,
+    [String(requestId), account.id],
+  )
+  if (!rows[0]) {
+    throw httpError('That request cannot be cancelled', 409)
+  }
+  return publicLearningRequest({
+    ...(rows[0] as {
+      id: string
+      student_id: string
+      rabbi_id: string | null
+      message: string
+      status: 'open' | 'claimed' | 'closed' | 'cancelled'
+      created_at: string
+      updated_at: string
+    }),
+    student_username: account.username,
+    student_contact: null,
+    rabbi_username: null,
+    rabbi_display_name: null,
+    rebbi_contact: null,
   })
 }
 

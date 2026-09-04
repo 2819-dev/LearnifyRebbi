@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  cancelLearningRequest,
   createLearningRequest,
   createRabbiWaitMessage,
   fetchAvailableRabbis,
@@ -260,11 +261,47 @@ export function RabbiRequestScreen({
                       </span>
                     </div>
                     {r.status === 'open' && (
+                      <>
+                        <p className="soft">
+                          Waiting for a Rebbi · {new Date(r.createdAt).toLocaleString()}
+                        </p>
+                        <div className="ticket-actions">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={async () => {
+                              setBusy(true)
+                              setError(null)
+                              try {
+                                const next = await cancelLearningRequest(r.id)
+                                setRequests((prev) =>
+                                  prev.map((row) =>
+                                    row.id === next.id ? next : row,
+                                  ),
+                                )
+                                setNotice('Request cancelled.')
+                              } catch (err) {
+                                setError(
+                                  err instanceof Error
+                                    ? err.message
+                                    : 'Could not cancel that request.',
+                                )
+                              } finally {
+                                setBusy(false)
+                              }
+                            }}
+                          >
+                            Cancel request
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    {r.status === 'cancelled' && (
                       <p className="soft">
-                        Waiting for a Rebbi · {new Date(r.createdAt).toLocaleString()}
+                        Cancelled · {new Date(r.updatedAt || r.createdAt).toLocaleString()}
                       </p>
                     )}
-                    {r.status !== 'open' && (
+                    {r.status !== 'open' && r.status !== 'cancelled' && (
                       <>
                         <p className="soft">
                           Matched with {name} ·{' '}

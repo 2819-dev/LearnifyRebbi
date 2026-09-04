@@ -58,6 +58,30 @@ export function normalizeDaf(input: string): string {
   return `${match[1]}${match[2] || 'a'}`
 }
 
+/** Turn the page: 21a → 21b → 22a. Clamped to Bava Metzia range 2a–119b. */
+export function adjacentDaf(input: string, delta: -1 | 1): string {
+  const current = normalizeDaf(input)
+  const match = current.match(/^(\d+)([ab])$/)
+  if (!match) return '21a'
+  let num = Number(match[1])
+  let side = match[2] as 'a' | 'b'
+  if (delta === 1) {
+    if (side === 'a') side = 'b'
+    else {
+      num += 1
+      side = 'a'
+    }
+  } else if (side === 'b') {
+    side = 'a'
+  } else {
+    num -= 1
+    side = 'b'
+  }
+  if (num < 2) return '2a'
+  if (num > 119) return '119b'
+  return `${num}${side}`
+}
+
 export function buildBavaMetziaRef(daf: string): string {
   return `Bava_Metzia.${normalizeDaf(daf)}`
 }

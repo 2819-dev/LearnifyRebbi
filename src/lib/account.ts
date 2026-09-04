@@ -13,6 +13,7 @@ export type Account = {
   rabbiStatus: RabbiStatus
   rabbiDisplayName: string
   rabbiBio: string
+  acceptingStudents?: boolean
 }
 
 export type SupportTicket = {
@@ -61,7 +62,7 @@ export type LearningRequest = {
   rabbiDisplayName: string | null
   rebbiContact: string | null
   message: string
-  status: 'open' | 'claimed' | 'closed'
+  status: 'open' | 'claimed' | 'closed' | 'cancelled'
   createdAt: string
   updatedAt: string
 }
@@ -255,6 +256,21 @@ export async function closeLearningRequest(requestId: string) {
   return data.request
 }
 
+export async function cancelLearningRequest(requestId: string) {
+  const data = await accountApi<{ request: LearningRequest }>(
+    'cancelLearningRequest',
+    { requestId },
+  )
+  return data.request
+}
+
+export async function setAcceptingStudents(accepting: boolean) {
+  const data = await accountApi<{ account: Account }>('setAcceptingStudents', {
+    accepting,
+  })
+  return data.account
+}
+
 export async function createRabbiWaitMessage(input: {
   name?: string
   message: string
@@ -345,6 +361,7 @@ export function learningRequestStatusLabel(
 ): string {
   if (status === 'open') return 'Waiting'
   if (status === 'claimed') return 'Matched'
+  if (status === 'cancelled') return 'Cancelled'
   return 'Finished'
 }
 
