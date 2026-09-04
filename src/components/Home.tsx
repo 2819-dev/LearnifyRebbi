@@ -17,7 +17,7 @@ import {
   type Account,
   type LearningRequest,
 } from '../lib/account'
-import { unlockAudio, warmRebbiSpeech } from '../lib/rebbe'
+import { unlockAudio } from '../lib/rebbe'
 import { normalizeDaf, prefetchGemaraPage } from '../lib/sefaria'
 import { TalkModePicker } from './TalkModePicker'
 import { LearnPathPicker, type LearnPath } from './LearnPathPicker'
@@ -149,7 +149,6 @@ export function Home({
     setStarting(true)
     try {
       await unlockAudio()
-      warmRebbiSpeech(nextVoice)
       saveLearningPrefs({
         tractateId: nextTractate,
         daf: nextDaf,

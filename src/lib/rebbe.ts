@@ -391,9 +391,13 @@ export async function fetchSpeech(
   return promise
 }
 
-/** Prefetch Gemini audio for a phrase (does not play). */
-export function prefetchSpeech(text: string, voice: string): void {
-  void fetchSpeech(text, voice)
+/** Return cached Gemini WAV only (no network). */
+export function peekSpeech(text: string, voice: string): SpeakPayload | null {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  const cached = ttsCache.get(ttsCacheKey(trimmed, voice))
+  if (cached?.audioBase64 && cached.source !== 'browser') return cached
+  return null
 }
 
 export async function playBase64Audio(
@@ -506,16 +510,6 @@ export async function speakTextAudibly(
   }
 
   await playBrowserSpeech(trimmed, handlers)
-}
-
-/** Warm common drill phrases during the Start/Resume tap. */
-export function warmRebbiSpeech(voice: string): void {
-  prefetchSpeech(
-    'Welcome. We will learn this line together, a few words at a time.',
-    voice,
-  )
-  prefetchSpeech('Now you say it.', voice)
-  prefetchSpeech('That means: ', voice)
 }
 
 export async function askRebbe(payload: {

@@ -60,6 +60,18 @@ export async function ttsModel(): Promise<string> {
   )
 }
 
+/** Alternate TTS models — separate free-tier buckets when the primary is exhausted. */
+export async function ttsModelCandidates(): Promise<string[]> {
+  const primary = await ttsModel()
+  const alts = [
+    primary,
+    'gemini-2.5-flash-preview-tts',
+    'gemini-2.5-pro-preview-tts',
+    'gemini-2.5-flash-tts',
+  ]
+  return [...new Set(alts.filter(Boolean))]
+}
+
 export async function withRetry<T>(fn: () => Promise<T>, tries = 3): Promise<T> {
   let lastErr: unknown
   for (let i = 0; i < tries; i += 1) {
@@ -74,7 +86,10 @@ export async function withRetry<T>(fn: () => Promise<T>, tries = 3): Promise<T> 
         status === 503 ||
         /high demand|quota|rate|unavailable|Resource exhausted/i.test(msg)
       if (!retryable || i === tries - 1) throw err
-      await new Promise((r) => setTimeout(r, 600 * (i + 1) * (i + 1)))
+      const retryMatch = msg.match(/retry in ([\d.]+)\s*s/i)
+      const suggested = retryMatch ? Number(retryMatch[1]) * 1000 : 0
+      const wait = Math.min(20000, Math.max(600 * (i + 1) * (i + 1), suggested || 0))
+      await new Promise((r) => setTimeout(r, wait))
     }
   }
   throw lastErr

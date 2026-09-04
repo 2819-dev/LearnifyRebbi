@@ -15,11 +15,11 @@ import { StudentMic, looksHebrew, micSupported } from '../lib/mic'
 import {
   askRebbe,
   fetchSpeech,
+  peekSpeech,
   playBase64Audio,
-  speakTextAudibly,
+  playBrowserSpeech,
   stopSpeaking,
   unlockAudio,
-  warmRebbiSpeech,
   type ChatMessage,
   type RebbeResponse,
   type SpeakPayload,
@@ -242,30 +242,31 @@ export function LearningRoom({
 
   async function speakUtterance(
     text: string,
-    opts?: { hebrew?: boolean; audio?: SpeakPayload | null },
+    opts?: { hebrew?: boolean; audio?: SpeakPayload | null; allowBrowser?: boolean },
   ) {
     if (!text.trim()) return
     setSpeaking(true)
-    // Fully kill mic so iPhone leaves call-audio mode before speaking.
     stopMic()
     try {
       if (opts?.audio) {
         await playAudio(opts.audio)
         return
       }
-      // Prefer pre-fetched Gemini WAV; fetchSpeech is cached.
       const audio = await fetchSpeech(text, voiceRef.current)
       if (audio?.audioBase64 && audio.source !== 'browser') {
         await playBase64Audio(audio, {
           onDuration: (ms) => startReadingWalk(ms),
         })
-      } else {
-        await speakTextAudibly(text, voiceRef.current, {
+      } else if (opts?.allowBrowser !== false) {
+        // Local voice — works best right after a tap.
+        await playBrowserSpeech(text, {
           lang: opts?.hebrew ? 'he-IL' : 'en-US',
           rate: opts?.hebrew ? 0.76 : 0.9,
           pitch: opts?.hebrew ? 0.9 : 0.85,
           onDuration: (ms) => startReadingWalk(ms),
         })
+      } else {
+        throw new Error('Could not play sound through your speakers.')
       }
       setSpeaking(false)
       clearWalk()
@@ -342,36 +343,40 @@ export function LearningRoom({
       return
     }
 
-    const englishLine = lesson.english ? `That means: ${lesson.english}` : ''
-    const queue: { text: string; hebrew?: boolean }[] = []
+    // One spoken script = one TTS request (avoids free-tier quota burn).
+    const parts: string[] = []
     if (lesson.welcome && !welcomedRef.current) {
       welcomedRef.current = true
-      queue.push({ text: lesson.welcome })
+      parts.push(lesson.welcome)
     }
-    if (lesson.hebrew) queue.push({ text: lesson.hebrew, hebrew: true })
-    if (englishLine) queue.push({ text: englishLine })
-
+    if (lesson.hebrew) parts.push(lesson.hebrew)
+    if (lesson.english) parts.push(`That means: ${lesson.english}`)
     pendingExplainRef.current = lesson.explain || lesson.reply || ''
     repeatTargetRef.current = lesson.hebrew || lesson.english || ''
-    if (repeatTargetRef.current) {
-      queue.push({ text: 'Now you say it.' })
+    if (repeatTargetRef.current) parts.push('Now you say it.')
+
+    const script = parts.filter(Boolean).join(' ')
+    if (!script) {
+      await finishExplain(requestId)
+      return
     }
 
-    // Fetch all WAVs up front so playback is continuous and audible.
     setBusy(true)
-    await Promise.all(
-      queue.map((item) => fetchSpeech(item.text, voiceRef.current)),
-    )
+    try {
+      await speakUtterance(script, {
+        hebrew: Boolean(lesson.hebrew && !lesson.english),
+        allowBrowser: false,
+      })
+    } catch {
+      // Autoplay often blocked — ask for a tap. Don't burn more quota here.
+      setNeedsGesture(true)
+      setBusy(false)
+      return
+    }
     if (requestId !== requestIdRef.current) return
     setBusy(false)
 
-    for (const item of queue) {
-      if (requestId !== requestIdRef.current) return
-      await speakUtterance(item.text, { hebrew: item.hebrew })
-    }
-
     if (repeatTargetRef.current) {
-      if (requestId !== requestIdRef.current) return
       setPhase('listening-repeat')
       startMic(true)
       return
@@ -688,28 +693,48 @@ export function LearningRoom({
     setError(null)
     try {
       await unlockAudio()
-      warmRebbiSpeech(voiceRef.current)
       setNeedsGesture(false)
       const lesson = lastLessonRef.current
-      if (lesson?.hebrew || lesson?.english || lesson?.welcome) {
+      const parts: string[] = []
+      if (lesson?.welcome) parts.push(lesson.welcome)
+      if (lesson?.hebrew) parts.push(lesson.hebrew)
+      if (lesson?.english) parts.push(`That means: ${lesson.english}`)
+      if (lesson?.hebrew || lesson?.english) parts.push('Now you say it.')
+      const script = parts.filter(Boolean).join(' ')
+
+      if (script) {
         setBusy(true)
-        const prev = talkModeRef.current
-        talkModeRef.current = 'voice'
-        // Allow welcome again on explicit Replay.
-        const hadWelcome = welcomedRef.current
-        if (lesson.welcome) welcomedRef.current = false
-        try {
-          await runDrill(lesson, requestIdRef.current)
-        } finally {
-          talkModeRef.current = prev
-          welcomedRef.current = hadWelcome || welcomedRef.current
+        setSpeaking(true)
+        const cached = peekSpeech(script, voiceRef.current)
+        if (cached) {
+          await playBase64Audio(cached, {
+            onDuration: (ms) => startReadingWalk(ms),
+          })
+        } else {
+          // Speak immediately in this tap — do not wait on the network.
+          void fetchSpeech(script, voiceRef.current)
+          await playBrowserSpeech(script, {
+            lang: 'en-US',
+            rate: 0.9,
+            onDuration: (ms) => startReadingWalk(ms),
+          })
         }
+        setSpeaking(false)
+        clearWalk()
         setBusy(false)
+        setNeedsGesture(false)
+        setError(null)
+        if (lesson?.hebrew || lesson?.english) {
+          repeatTargetRef.current = lesson.hebrew || lesson.english || ''
+          setPhase('listening-repeat')
+          startMic(true)
+        }
         return
       }
       await teachCurrentLine()
     } catch (err) {
       setBusy(false)
+      setSpeaking(false)
       setNeedsGesture(true)
       setError(friendlyError(err))
     }

@@ -10,7 +10,7 @@ import {
   buildCurriculumBlock,
   geminiKey,
   geminiModel,
-  ttsModel,
+  ttsModelCandidates,
   withRetry,
   parseLessonPayload,
 } from './rebbe-lib.ts'
@@ -236,20 +236,27 @@ export async function synthesizeRebbeSpeech(text: unknown, voiceName = 'Charon')
   const spoken = clip(String(text || '').trim(), 480)
   if (!spoken) throw httpError('Nothing to speak', 400)
 
-  try {
-    return await withRetry(
-      async () => requestGeminiSpeech(await ttsModel(), apiKey, spoken, voice),
-      1,
-    )
-  } catch (err) {
-    return {
-      mimeType: 'browser',
-      audioBase64: '',
-      voice,
-      source: 'browser',
-      text: spoken,
-      warning: (err as { message?: string })?.message || 'Using local voice',
+  const models = await ttsModelCandidates()
+  let lastErr: unknown
+  for (const model of models) {
+    try {
+      return await withRetry(
+        async () => requestGeminiSpeech(model, apiKey, spoken, voice),
+        2,
+      )
+    } catch (err) {
+      lastErr = err
+      console.error('TTS failed for', model, err)
     }
+  }
+
+  return {
+    mimeType: 'browser',
+    audioBase64: '',
+    voice,
+    source: 'browser',
+    text: spoken,
+    warning: (lastErr as { message?: string })?.message || 'Using local voice',
   }
 }
 
