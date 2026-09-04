@@ -14,7 +14,7 @@ type Props = {
 
 export function AccountMenu({ greeting, items }: Props) {
   const [open, setOpen] = useState(false)
-  const titleId = useId()
+  const panelId = useId()
 
   useEffect(() => {
     if (!open) return
@@ -34,25 +34,22 @@ export function AccountMenu({ greeting, items }: Props) {
     }
   }, [open])
 
-  if (items.length === 0 && !greeting) return null
+  if (items.length === 0) return null
 
   return (
     <>
-      <div className="home-nav account-nav">
-        {greeting ? <span className="soft account-greeting">{greeting}</span> : <span />}
-        <button
-          type="button"
-          className={`menu-toggle${open ? ' open' : ''}`}
-          aria-label={open ? 'Close menu' : 'Open menu'}
-          aria-expanded={open}
-          aria-controls={titleId}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span />
-          <span />
-          <span />
-        </button>
-      </div>
+      <button
+        type="button"
+        className={`corner-menu-toggle${open ? ' open' : ''}`}
+        aria-label={open ? 'Close menu' : 'Open menu'}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span aria-hidden />
+        <span aria-hidden />
+        <span aria-hidden />
+      </button>
 
       {open && (
         <div className="account-drawer-root">
@@ -64,10 +61,10 @@ export function AccountMenu({ greeting, items }: Props) {
           />
           <aside
             className="account-drawer"
-            id={titleId}
+            id={panelId}
             role="dialog"
             aria-modal="true"
-            aria-label="Account menu"
+            aria-label="Menu"
           >
             <div className="account-drawer-head">
               <p className="account-drawer-title">Menu</p>
@@ -79,7 +76,9 @@ export function AccountMenu({ greeting, items }: Props) {
                 Close
               </button>
             </div>
-            {greeting && <p className="soft account-drawer-greeting">{greeting}</p>}
+            {greeting && (
+              <p className="soft account-drawer-greeting">{greeting}</p>
+            )}
             <nav className="account-drawer-nav" aria-label="Account">
               {items.map((item) => (
                 <button

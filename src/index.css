@@ -195,6 +195,45 @@ button {
   animation: in 720ms 60ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.corner-menu-toggle {
+  position: fixed;
+  top: max(0.85rem, env(safe-area-inset-top));
+  right: max(0.85rem, env(safe-area-inset-right));
+  z-index: 45;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 252, 247, 0.9);
+  display: grid;
+  place-content: center;
+  gap: 0.3rem;
+  padding: 0;
+  box-shadow: 0 1px 0 var(--edge);
+  backdrop-filter: blur(8px);
+}
+
+.corner-menu-toggle span {
+  display: block;
+  width: 1.15rem;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.corner-menu-toggle.open span:nth-child(1) {
+  transform: translateY(0.36rem) rotate(45deg);
+}
+
+.corner-menu-toggle.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.corner-menu-toggle.open span:nth-child(3) {
+  transform: translateY(-0.36rem) rotate(-45deg);
+}
+
 .account-nav {
   justify-content: space-between;
   flex-wrap: nowrap;
@@ -336,6 +375,7 @@ button {
 
 .home-hero {
   animation: in 760ms 40ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  padding-right: 3.4rem;
 }
 
 .brand {
@@ -703,6 +743,7 @@ button {
   gap: 0.85rem;
   align-items: start;
   margin-bottom: 1rem;
+  padding-right: 3.6rem;
 }
 
 .linkish {
