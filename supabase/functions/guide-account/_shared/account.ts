@@ -1,4 +1,3 @@
-import { generateRebbeReply } from './rebbe.ts'
 import { httpError } from './http.ts'
 import {
   accountFromToken,
@@ -129,20 +128,8 @@ export async function handleAccountAction(
   if (action === 'trainingSave') return { training: await addTraining(token, body) }
   if (action === 'trainingChat') {
     await requireRole(token, ['admin', 'tester'])
-    const lesson = await generateRebbeReply({
-      messages: Array.isArray(body.messages) ? body.messages : [],
-      gemaraRef: String(body.gemaraRef || 'Training desk'),
-      hebrewLine: String(body.hebrewLine || ''),
-      englishLine: String(body.englishLine || ''),
-      lineIndex: 0,
-      mode: 'ask',
-      question: String(body.question || 'Practice reply.'),
-      needWelcome: false,
-    })
-    return {
-      reply: lesson.speech || lesson.explain || '',
-      highlights: lesson.highlights || [],
-    }
+    // Coaching chat uses the separate guide-rebbe function from the client.
+    throw httpError('Use Guide learning for live coaching practice', 400)
   }
   throw httpError('Unknown action', 400)
 }

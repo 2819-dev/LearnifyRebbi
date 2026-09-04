@@ -169,7 +169,7 @@ export async function accountFromToken(token: string): Promise<PublicAccount | n
   if (!token) return null
   const tokenHash = await sha256Hex(token)
   const rows = await query<AccountRow>(
-    `select a.id, a.username, a.phone, a.password_hash, a.role, a.created_at, a.rabbi_status, a.rabbi_display_name, a.rabbi_bio, a.rabbi_answers
+    `select ${ACCOUNT_COLS}
      from guide.sessions s
      join guide.accounts a on a.id = s.account_id
      where s.token_hash = $1 and s.expires_at > now()
