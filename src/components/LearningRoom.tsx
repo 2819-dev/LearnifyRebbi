@@ -14,11 +14,12 @@ import {
 import { StudentMic, looksHebrew, micSupported } from '../lib/mic'
 import {
   askRebbe,
+  fetchSpeech,
   playBase64Audio,
   speakTextAudibly,
   stopSpeaking,
   unlockAudio,
-  prefetchSpeech,
+  warmRebbiSpeech,
   type ChatMessage,
   type RebbeResponse,
   type SpeakPayload,
@@ -73,7 +74,7 @@ function friendlyError(err: unknown): string {
     return 'Please try again in a moment.'
   }
   if (/play|sound|Audio|NotAllowedError/i.test(msg)) {
-    return 'Tap Replay to hear the Rebbi.'
+    return 'Tap Hear the Rebbi to play sound.'
   }
   return 'Something went wrong. Please try again.'
 }
@@ -252,12 +253,20 @@ export function LearningRoom({
         await playAudio(opts.audio)
         return
       }
-      await speakTextAudibly(text, voiceRef.current, {
-        lang: opts?.hebrew ? 'he-IL' : 'en-US',
-        rate: opts?.hebrew ? 0.76 : 0.9,
-        pitch: opts?.hebrew ? 0.9 : 0.85,
-        onDuration: (ms) => startReadingWalk(ms),
-      })
+      // Prefer pre-fetched Gemini WAV; fetchSpeech is cached.
+      const audio = await fetchSpeech(text, voiceRef.current)
+      if (audio?.audioBase64 && audio.source !== 'browser') {
+        await playBase64Audio(audio, {
+          onDuration: (ms) => startReadingWalk(ms),
+        })
+      } else {
+        await speakTextAudibly(text, voiceRef.current, {
+          lang: opts?.hebrew ? 'he-IL' : 'en-US',
+          rate: opts?.hebrew ? 0.76 : 0.9,
+          pitch: opts?.hebrew ? 0.9 : 0.85,
+          onDuration: (ms) => startReadingWalk(ms),
+        })
+      }
       setSpeaking(false)
       clearWalk()
       setNeedsGesture(false)
@@ -333,36 +342,37 @@ export function LearningRoom({
       return
     }
 
-    // Warm Gemini backups while browser speaks the first lines.
-    if (lesson.hebrew) prefetchSpeech(lesson.hebrew, voiceRef.current)
-    if (lesson.english) {
-      prefetchSpeech(`That means: ${lesson.english}`, voiceRef.current)
-    }
-
+    const englishLine = lesson.english ? `That means: ${lesson.english}` : ''
+    const queue: { text: string; hebrew?: boolean }[] = []
     if (lesson.welcome && !welcomedRef.current) {
       welcomedRef.current = true
-      await speakUtterance(lesson.welcome)
-      if (requestId !== requestIdRef.current) return
+      queue.push({ text: lesson.welcome })
     }
-
-    if (lesson.hebrew) {
-      await speakUtterance(lesson.hebrew, { hebrew: true })
-      if (requestId !== requestIdRef.current) return
-    }
-
-    if (lesson.english) {
-      await speakUtterance(`That means: ${lesson.english}`)
-      if (requestId !== requestIdRef.current) return
-    }
+    if (lesson.hebrew) queue.push({ text: lesson.hebrew, hebrew: true })
+    if (englishLine) queue.push({ text: englishLine })
 
     pendingExplainRef.current = lesson.explain || lesson.reply || ''
     repeatTargetRef.current = lesson.hebrew || lesson.english || ''
+    if (repeatTargetRef.current) {
+      queue.push({ text: 'Now you say it.' })
+    }
+
+    // Fetch all WAVs up front so playback is continuous and audible.
+    setBusy(true)
+    await Promise.all(
+      queue.map((item) => fetchSpeech(item.text, voiceRef.current)),
+    )
+    if (requestId !== requestIdRef.current) return
+    setBusy(false)
+
+    for (const item of queue) {
+      if (requestId !== requestIdRef.current) return
+      await speakUtterance(item.text, { hebrew: item.hebrew })
+    }
 
     if (repeatTargetRef.current) {
-      await speakUtterance('Now you say it.')
       if (requestId !== requestIdRef.current) return
       setPhase('listening-repeat')
-      // Open mic only for the repeat — keeps iPhone out of call mode while Rebbi speaks.
       startMic(true)
       return
     }
@@ -678,16 +688,21 @@ export function LearningRoom({
     setError(null)
     try {
       await unlockAudio()
+      warmRebbiSpeech(voiceRef.current)
       setNeedsGesture(false)
       const lesson = lastLessonRef.current
-      if (lesson?.hebrew || lesson?.english) {
+      if (lesson?.hebrew || lesson?.english || lesson?.welcome) {
         setBusy(true)
         const prev = talkModeRef.current
         talkModeRef.current = 'voice'
+        // Allow welcome again on explicit Replay.
+        const hadWelcome = welcomedRef.current
+        if (lesson.welcome) welcomedRef.current = false
         try {
           await runDrill(lesson, requestIdRef.current)
         } finally {
           talkModeRef.current = prev
+          welcomedRef.current = hadWelcome || welcomedRef.current
         }
         setBusy(false)
         return
@@ -710,11 +725,11 @@ export function LearningRoom({
       : speaking
         ? 'Speaking'
         : busy
-          ? 'Preparing'
+          ? 'Preparing voice…'
           : phase === 'listening-repeat'
             ? 'Your turn — say it'
             : needsGesture
-              ? 'Tap Replay to hear'
+              ? 'Tap Hear the Rebbi'
               : micListening
                 ? 'Listening — ask aloud'
                 : 'Ready'
@@ -960,7 +975,7 @@ export function LearningRoom({
                 onClick={() => void hearAgainFromTap()}
                 disabled={busy && !needsGesture}
               >
-                Replay
+                {needsGesture ? 'Hear the Rebbi' : 'Replay'}
               </button>
               {phase === 'listening-repeat' && (
                 <button

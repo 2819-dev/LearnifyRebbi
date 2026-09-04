@@ -40,11 +40,18 @@ type AudioWindow = Window & {
 }
 
 let audioCtx: AudioContext | null = null
+/** Persistent element unlocked inside a user gesture — required for iOS speakers. */
+let unlockedAudioEl: HTMLAudioElement | null = null
 let currentSource: AudioBufferSourceNode | null = null
-let currentHtmlAudio: HTMLAudioElement | null = null
+let currentObjectUrl: string | null = null
 let unlocked = false
 
 const KIND_SET = new Set<HighlightKind>(['reading', 'term', 'rashi', 'focus'])
+const ttsCache = new Map<string, SpeakPayload>()
+const ttsInflight = new Map<string, Promise<SpeakPayload>>()
+
+const SILENT_WAV =
+  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
 
 function normalizeHighlights(raw: unknown): TextHighlight[] {
   if (!Array.isArray(raw)) return []
@@ -72,19 +79,76 @@ function getAudioContext(): AudioContext {
   return audioCtx
 }
 
+function ensureUnlockedAudioEl(): HTMLAudioElement {
+  if (unlockedAudioEl) return unlockedAudioEl
+  const el = new Audio()
+  el.setAttribute('playsinline', 'true')
+  el.setAttribute('webkit-playsinline', 'true')
+  el.preload = 'auto'
+  unlockedAudioEl = el
+  return el
+}
+
+function ttsCacheKey(text: string, voice: string) {
+  return `${voice}::${text}`
+}
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+function copyToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(copy).set(bytes)
+  return copy
+}
+
+function estimateSpeechMs(text: string): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length
+  return Math.max(1400, Math.round((words / 2.4) * 1000))
+}
+
+function revokeCurrentObjectUrl() {
+  if (currentObjectUrl) {
+    URL.revokeObjectURL(currentObjectUrl)
+    currentObjectUrl = null
+  }
+}
+
 /** Must run inside a click/tap handler so speakers are allowed. */
 export async function unlockAudio(): Promise<void> {
-  const ctx = getAudioContext()
-  if (ctx.state === 'suspended') {
-    await ctx.resume()
+  const el = ensureUnlockedAudioEl()
+  el.muted = false
+  el.volume = 1
+  el.src = SILENT_WAV
+  try {
+    await el.play()
+  } catch {
+    // Still mark unlocked — AudioContext path may work.
   }
-  const buffer = ctx.createBuffer(1, 1, 22050)
-  const source = ctx.createBufferSource()
-  source.buffer = buffer
-  source.connect(ctx.destination)
-  source.start(0)
+  try {
+    el.pause()
+    el.currentTime = 0
+  } catch {
+    // ignore
+  }
 
-  await reclaimPlaybackRoute()
+  try {
+    const ctx = getAudioContext()
+    if (ctx.state === 'suspended') await ctx.resume()
+    const buffer = ctx.createBuffer(1, 1, 22050)
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.connect(ctx.destination)
+    source.start(0)
+  } catch {
+    // ignore
+  }
 
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     try {
@@ -97,21 +161,17 @@ export async function unlockAudio(): Promise<void> {
   unlocked = true
 }
 
-/**
- * Nudge iOS out of phone-call / PlayAndRecord mode into normal media playback
- * so speech comes through the speakers instead of the earpiece.
- */
 export async function reclaimPlaybackRoute(): Promise<void> {
-  // Tiny valid WAV (silence)
-  const silent =
-    'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
   try {
-    const el = new Audio(silent)
-    el.setAttribute('playsinline', 'true')
+    const el = ensureUnlockedAudioEl()
+    const prev = el.src
+    el.src = SILENT_WAV
     el.volume = 0.01
     await el.play()
     el.pause()
-    el.src = ''
+    el.currentTime = 0
+    el.volume = 1
+    if (prev && prev !== SILENT_WAV) el.src = prev
   } catch {
     // ignore
   }
@@ -121,7 +181,6 @@ export async function reclaimPlaybackRoute(): Promise<void> {
   } catch {
     // ignore
   }
-  await new Promise((r) => setTimeout(r, 40))
 }
 
 export function isAudioUnlocked(): boolean {
@@ -135,23 +194,20 @@ export function stopSpeaking() {
     // already stopped
   }
   currentSource = null
-  if (currentHtmlAudio) {
-    currentHtmlAudio.pause()
-    currentHtmlAudio.src = ''
-    currentHtmlAudio = null
+  if (unlockedAudioEl) {
+    try {
+      unlockedAudioEl.onended = null
+      unlockedAudioEl.onerror = null
+      unlockedAudioEl.pause()
+      // Keep the element itself — iOS needs the gesture-unlocked instance.
+    } catch {
+      // ignore
+    }
   }
+  revokeCurrentObjectUrl()
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel()
   }
-}
-
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes.buffer
 }
 
 function pickBrowserVoice(lang?: string): SpeechSynthesisVoice | null {
@@ -166,7 +222,8 @@ function pickBrowserVoice(lang?: string): SpeechSynthesisVoice | null {
     )
   }
 
-  const female = /female|zira|susan|samantha|karen|moira|tessa|fiona|victoria|siri|jenny|aria|sara|helen|hazel/i
+  const female =
+    /female|zira|susan|samantha|karen|moira|tessa|fiona|victoria|siri|jenny|aria|sara|helen|hazel/i
   const malePreferred = [
     /google uk english male/i,
     /microsoft (guy|davis|tony|mark|andrew|christopher|eric|george)/i,
@@ -187,11 +244,6 @@ function pickBrowserVoice(lang?: string): SpeechSynthesisVoice | null {
   )
 }
 
-function estimateSpeechMs(text: string): number {
-  const words = text.trim().split(/\s+/).filter(Boolean).length
-  return Math.max(1400, Math.round((words / 2.4) * 1000))
-}
-
 export type BrowserSpeechOptions = PlayHandlers & {
   lang?: string
   rate?: number
@@ -209,16 +261,17 @@ export async function playBrowserSpeech(
     throw new Error('No speaker voice available in this browser.')
   }
   stopSpeaking()
-  await reclaimPlaybackRoute()
   const expected = estimateSpeechMs(text)
   onDuration?.(expected)
 
   await new Promise<void>((resolve, reject) => {
     let started = false
+    let didStart = false
     let settled = false
     const finish = (ok: boolean) => {
       if (settled) return
       settled = true
+      window.clearTimeout(watchdog)
       if (ok) {
         onend?.()
         resolve()
@@ -226,6 +279,10 @@ export async function playBrowserSpeech(
         reject(new Error('Could not play speech through speakers.'))
       }
     }
+
+    const watchdog = window.setTimeout(() => {
+      if (!didStart) finish(false)
+    }, 1500)
 
     const speakNow = () => {
       if (started) return
@@ -240,26 +297,16 @@ export async function playBrowserSpeech(
       utter.pitch = pitch ?? (isHe ? 0.9 : 0.85)
       utter.volume = 1
       utter.onstart = () => {
-        // ok
+        didStart = true
       }
       utter.onend = () => {
-        // iOS sometimes fires onend instantly without audible speech.
         const elapsed = Date.now() - startedAt
-        finish(elapsed > 350 || text.trim().length < 8)
+        finish(didStart && (elapsed > 350 || text.trim().length < 8))
       }
       utter.onerror = () => finish(false)
       try {
         window.speechSynthesis.cancel()
         window.speechSynthesis.speak(utter)
-        // Safari can stall speechSynthesis until resumed.
-        window.setTimeout(() => {
-          try {
-            window.speechSynthesis.pause()
-            window.speechSynthesis.resume()
-          } catch {
-            // ignore
-          }
-        }, 40)
       } catch {
         finish(false)
       }
@@ -272,197 +319,6 @@ export async function playBrowserSpeech(
       speakNow()
     }
   })
-}
-
-const ttsCache = new Map<string, SpeakPayload>()
-
-function ttsCacheKey(text: string, voice: string) {
-  return `${voice}::${text}`
-}
-
-/** Speak immediately with browser TTS; Gemini is the backup (and for Hebrew if needed). */
-export async function speakTextAudibly(
-  text: string,
-  voice: string,
-  handlers?: BrowserSpeechOptions,
-): Promise<void> {
-  const trimmed = text.trim()
-  if (!trimmed) return
-
-  const wantHe = Boolean(handlers?.lang?.toLowerCase().startsWith('he'))
-  const hasHeVoice = wantHe ? Boolean(pickBrowserVoice('he-IL')) : true
-  const canTryBrowser =
-    typeof window !== 'undefined' &&
-    Boolean(window.speechSynthesis) &&
-    (!wantHe || hasHeVoice)
-
-  if (canTryBrowser) {
-    try {
-      await playBrowserSpeech(trimmed, handlers)
-      return
-    } catch {
-      // fall through to Gemini
-    }
-  }
-
-  const cached = ttsCache.get(ttsCacheKey(trimmed, voice))
-  if (cached?.audioBase64) {
-    await playBase64Audio(cached, handlers)
-    return
-  }
-
-  const audio = await speakAgain(trimmed, voice)
-  if (audio.audioBase64 && audio.source !== 'browser') {
-    ttsCache.set(ttsCacheKey(trimmed, voice), audio)
-    await playBase64Audio(audio, handlers)
-    return
-  }
-
-  await reclaimPlaybackRoute()
-  await playBrowserSpeech(trimmed, handlers)
-}
-
-/** Prefetch Gemini audio for a phrase (does not play). */
-export function prefetchSpeech(text: string, voice: string): void {
-  const trimmed = text.trim()
-  if (!trimmed) return
-  const key = ttsCacheKey(trimmed, voice)
-  if (ttsCache.has(key)) return
-  void speakAgain(trimmed, voice)
-    .then((audio) => {
-      if (audio.audioBase64 && audio.source !== 'browser') {
-        ttsCache.set(key, audio)
-      }
-    })
-    .catch(() => {})
-}
-
-export async function playBase64Audio(
-  audio: SpeakPayload,
-  handlers?: PlayHandlers | (() => void),
-): Promise<void> {
-  const onend = typeof handlers === 'function' ? handlers : handlers?.onend
-  const onDuration =
-    typeof handlers === 'function' ? undefined : handlers?.onDuration
-
-  if (audio.source === 'browser' || audio.mimeType === 'browser') {
-    await playBrowserSpeech(audio.text || '', { onend, onDuration })
-    return
-  }
-
-  stopSpeaking()
-  await reclaimPlaybackRoute()
-
-  const ctx = getAudioContext()
-  if (ctx.state === 'suspended') {
-    await ctx.resume()
-  }
-  if (!unlocked) {
-    await unlockAudio()
-  }
-
-  try {
-    const arrayBuffer = base64ToArrayBuffer(audio.audioBase64)
-    const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0))
-    onDuration?.(Math.max(800, Math.round(decoded.duration * 1000)))
-    await new Promise<void>((resolve) => {
-      const source = ctx.createBufferSource()
-      const gain = ctx.createGain()
-      gain.gain.value = 1
-      source.buffer = decoded
-      source.connect(gain)
-      gain.connect(ctx.destination)
-      currentSource = source
-      source.onended = () => {
-        if (currentSource === source) currentSource = null
-        onend?.()
-        resolve()
-      }
-      source.start(0)
-    })
-    return
-  } catch (err) {
-    console.warn('AudioContext playback failed, trying HTMLAudioElement', err)
-  }
-
-  const url = `data:${audio.mimeType};base64,${audio.audioBase64}`
-  const el = new Audio(url)
-  el.setAttribute('playsinline', 'true')
-  el.volume = 1
-  currentHtmlAudio = el
-  el.onloadedmetadata = () => {
-    if (Number.isFinite(el.duration) && el.duration > 0) {
-      onDuration?.(Math.max(800, Math.round(el.duration * 1000)))
-    } else if (audio.text) {
-      onDuration?.(estimateSpeechMs(audio.text))
-    }
-  }
-  await new Promise<void>((resolve, reject) => {
-    el.onended = () => {
-      if (currentHtmlAudio === el) currentHtmlAudio = null
-      onend?.()
-      resolve()
-    }
-    el.onerror = () => {
-      if (currentHtmlAudio === el) currentHtmlAudio = null
-      onend?.()
-      resolve()
-    }
-    void el.play().catch((err) => {
-      currentHtmlAudio = null
-      if (audio.text) {
-        void playBrowserSpeech(audio.text, { onend, onDuration })
-          .then(() => resolve())
-          .catch((inner) => reject(inner))
-        return
-      }
-      reject(
-        err instanceof Error
-          ? new Error(`Could not play sound: ${err.message}`)
-          : new Error('Could not play sound through your speakers.'),
-      )
-    })
-  })
-}
-
-export async function askRebbe(payload: {
-  messages: ChatMessage[]
-  gemaraRef: string
-  hebrewLine: string
-  englishLine: string
-  lineIndex: number
-  mode: 'teach' | 'continue' | 'ask'
-  question?: string
-  voice: string
-  rashiForLine?: string
-  tosafotForLine?: string
-  needWelcome?: boolean
-  includeSpeech?: boolean
-}): Promise<RebbeResponse> {
-  const res = await fetch(GUIDE_FUNCTIONS.rebbe, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: GUIDE_ANON_KEY,
-    },
-    body: JSON.stringify(payload),
-  })
-  const data = await res.json()
-  if (!res.ok) {
-    throw new Error(data.error || 'Rebbi is unavailable right now.')
-  }
-  return {
-    reply: String(data.reply || data.explain || ''),
-    welcome: String(data.welcome || ''),
-    hebrew: String(data.hebrew || ''),
-    english: String(data.english || ''),
-    explain: String(data.explain || ''),
-    highlights: normalizeHighlights(data.highlights),
-    audio:
-      data.audio?.audioBase64 || data.audio?.source === 'browser'
-        ? (data.audio as SpeakPayload)
-        : null,
-  }
 }
 
 export async function speakAgain(
@@ -504,4 +360,200 @@ export async function speakAgain(
     }
   }
   return { ...data, text } as SpeakPayload
+}
+
+/** Fetch Gemini WAV (cached). */
+export async function fetchSpeech(
+  text: string,
+  voice: string,
+): Promise<SpeakPayload | null> {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  const key = ttsCacheKey(trimmed, voice)
+  const cached = ttsCache.get(key)
+  if (cached?.audioBase64 && cached.source !== 'browser') return cached
+
+  const existing = ttsInflight.get(key)
+  if (existing) return existing
+
+  const promise = speakAgain(trimmed, voice)
+    .then((audio) => {
+      if (audio.audioBase64 && audio.source !== 'browser') {
+        ttsCache.set(key, audio)
+        return audio
+      }
+      return audio
+    })
+    .finally(() => {
+      ttsInflight.delete(key)
+    })
+  ttsInflight.set(key, promise)
+  return promise
+}
+
+/** Prefetch Gemini audio for a phrase (does not play). */
+export function prefetchSpeech(text: string, voice: string): void {
+  void fetchSpeech(text, voice)
+}
+
+export async function playBase64Audio(
+  audio: SpeakPayload,
+  handlers?: PlayHandlers | (() => void),
+): Promise<void> {
+  const onend = typeof handlers === 'function' ? handlers : handlers?.onend
+  const onDuration =
+    typeof handlers === 'function' ? undefined : handlers?.onDuration
+
+  if (audio.source === 'browser' || audio.mimeType === 'browser' || !audio.audioBase64) {
+    await playBrowserSpeech(audio.text || '', { onend, onDuration })
+    return
+  }
+
+  stopSpeaking()
+
+  const bytes = base64ToUint8Array(audio.audioBase64)
+  const mime = audio.mimeType || 'audio/wav'
+  const buffer = copyToArrayBuffer(bytes)
+  const blob = new Blob([buffer], { type: mime })
+  const url = URL.createObjectURL(blob)
+  currentObjectUrl = url
+
+  const el = ensureUnlockedAudioEl()
+  el.muted = false
+  el.volume = 1
+  el.src = url
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false
+    const finishOk = () => {
+      if (settled) return
+      settled = true
+      onend?.()
+      resolve()
+    }
+    const finishErr = (err: Error) => {
+      if (settled) return
+      settled = true
+      reject(err)
+    }
+
+    el.onloadedmetadata = () => {
+      if (Number.isFinite(el.duration) && el.duration > 0) {
+        onDuration?.(Math.max(800, Math.round(el.duration * 1000)))
+      } else if (audio.text) {
+        onDuration?.(estimateSpeechMs(audio.text))
+      }
+    }
+    el.onended = finishOk
+    el.onerror = () =>
+      finishErr(new Error('Could not play sound through your speakers.'))
+
+    void el.play().then(
+      () => {
+        // playing
+      },
+      async (err) => {
+        // Fallback: AudioContext (works if unlocked in gesture)
+        try {
+          const ctx = getAudioContext()
+          if (ctx.state === 'suspended') await ctx.resume()
+          const decoded = await ctx.decodeAudioData(buffer.slice(0))
+          onDuration?.(Math.max(800, Math.round(decoded.duration * 1000)))
+          await new Promise<void>((res) => {
+            const source = ctx.createBufferSource()
+            const gain = ctx.createGain()
+            gain.gain.value = 1
+            source.buffer = decoded
+            source.connect(gain)
+            gain.connect(ctx.destination)
+            currentSource = source
+            source.onended = () => {
+              if (currentSource === source) currentSource = null
+              res()
+            }
+            source.start(0)
+          })
+          finishOk()
+        } catch {
+          finishErr(
+            err instanceof Error
+              ? new Error(`Could not play sound: ${err.message}`)
+              : new Error('Could not play sound through your speakers.'),
+          )
+        }
+      },
+    )
+  })
+}
+
+/**
+ * Speak with the Rebbi: always prefer real Gemini WAV through the unlocked
+ * audio element. Browser speechSynthesis is last-resort only — it often
+ * "succeeds" while staying silent on phones.
+ */
+export async function speakTextAudibly(
+  text: string,
+  voice: string,
+  handlers?: BrowserSpeechOptions,
+): Promise<void> {
+  const trimmed = text.trim()
+  if (!trimmed) return
+
+  const audio = await fetchSpeech(trimmed, voice)
+  if (audio?.audioBase64 && audio.source !== 'browser') {
+    await playBase64Audio(audio, handlers)
+    return
+  }
+
+  await playBrowserSpeech(trimmed, handlers)
+}
+
+/** Warm common drill phrases during the Start/Resume tap. */
+export function warmRebbiSpeech(voice: string): void {
+  prefetchSpeech(
+    'Welcome. We will learn this line together, a few words at a time.',
+    voice,
+  )
+  prefetchSpeech('Now you say it.', voice)
+  prefetchSpeech('That means: ', voice)
+}
+
+export async function askRebbe(payload: {
+  messages: ChatMessage[]
+  gemaraRef: string
+  hebrewLine: string
+  englishLine: string
+  lineIndex: number
+  mode: 'teach' | 'continue' | 'ask'
+  question?: string
+  voice: string
+  rashiForLine?: string
+  tosafotForLine?: string
+  needWelcome?: boolean
+  includeSpeech?: boolean
+}): Promise<RebbeResponse> {
+  const res = await fetch(GUIDE_FUNCTIONS.rebbe, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: GUIDE_ANON_KEY,
+    },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.error || 'Rebbi is unavailable right now.')
+  }
+  return {
+    reply: String(data.reply || data.explain || ''),
+    welcome: String(data.welcome || ''),
+    hebrew: String(data.hebrew || ''),
+    english: String(data.english || ''),
+    explain: String(data.explain || ''),
+    highlights: normalizeHighlights(data.highlights),
+    audio:
+      data.audio?.audioBase64 || data.audio?.source === 'browser'
+        ? (data.audio as SpeakPayload)
+        : null,
+  }
 }
