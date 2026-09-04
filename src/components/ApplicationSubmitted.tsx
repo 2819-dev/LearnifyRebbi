@@ -1,4 +1,4 @@
-import { APP_NAME } from '../lib/brand'
+import { AppMark } from './AppMark'
 import type { Account } from '../lib/account'
 
 type Props = {
@@ -21,7 +21,9 @@ export function ApplicationSubmitted({
       </div>
       <div className="shell home-shell">
         <main className="home auth-home submitted-home">
-          <p className="brand">{APP_NAME}</p>
+          <p className="brand-mark">
+            <AppMark size="md" />
+          </p>
           <p className="status-pill" role="status">
             Under review
           </p>

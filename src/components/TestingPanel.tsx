@@ -6,7 +6,7 @@ import {
   type Account,
   type TrainingRow,
 } from '../lib/account'
-import { APP_NAME } from '../lib/brand'
+import { AppMark } from './AppMark'
 
 type Props = {
   account: Account
@@ -82,8 +82,13 @@ export function TestingPanel({ account, onBack, onOpenAdmin }: Props) {
     <div className="shell panel-shell">
       <header className="panel-bar">
         <div>
-          <button type="button" className="linkish" onClick={onBack}>
-            {APP_NAME}
+          <button
+            type="button"
+            className="mark-back"
+            onClick={onBack}
+            aria-label="Back to home"
+          >
+            <AppMark />
           </button>
           <p className="panel-sub">Coaching desk · {account.username}</p>
         </div>

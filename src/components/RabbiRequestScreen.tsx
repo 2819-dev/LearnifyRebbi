@@ -10,7 +10,7 @@ import {
   type LearningRequest,
   type RabbiProfile,
 } from '../lib/account'
-import { APP_NAME } from '../lib/brand'
+import { AppMark } from './AppMark'
 
 type Props = {
   account: Account
@@ -96,9 +96,11 @@ export function RabbiRequestScreen({
       </div>
       <main className="home auth-home auth-home-wide rebbe-request-home">
         <button type="button" className="linkish tiny auth-back" onClick={onBack}>
-          ← Back to {APP_NAME}
+          ← Back
         </button>
-        <p className="brand">{APP_NAME}</p>
+        <p className="brand-mark">
+          <AppMark size="md" />
+        </p>
         <h1>Learn with Rebbi</h1>
         <p className="lede">
           Request a real-life Rebbi. When someone accepts, you exchange phone

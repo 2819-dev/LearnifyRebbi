@@ -17,7 +17,7 @@ import {
   type RabbiWaitMessage,
   type SupportTicket,
 } from '../lib/account'
-import { APP_NAME } from '../lib/brand'
+import { AppMark } from './AppMark'
 
 type Props = {
   account: Account
@@ -65,8 +65,13 @@ export function AdminPanel({ account, onBack, onOpenTesting }: Props) {
     <div className="shell panel-shell">
       <header className="panel-bar">
         <div>
-          <button type="button" className="linkish" onClick={onBack}>
-            {APP_NAME}
+          <button
+            type="button"
+            className="mark-back"
+            onClick={onBack}
+            aria-label="Back to home"
+          >
+            <AppMark />
           </button>
           <p className="panel-sub">Owner tools · {account.username}</p>
         </div>

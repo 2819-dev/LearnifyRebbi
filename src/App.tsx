@@ -10,8 +10,8 @@ import { RabbiPanel } from './components/RabbiPanel'
 import { RabbiRequestScreen } from './components/RabbiRequestScreen'
 import { ApplicationSubmitted } from './components/ApplicationSubmitted'
 import { ApplicationRejected } from './components/ApplicationRejected'
+import { AppMark } from './components/AppMark'
 import {
-  APP_NAME,
   hasCompletedOnboarding,
   markOnboardingDone,
   REBBE_VOICES,
@@ -442,7 +442,9 @@ export default function App() {
       return (
         <div className="shell home-shell">
           <main className="home auth-home">
-            <p className="brand">{APP_NAME}</p>
+            <p className="brand-mark">
+              <AppMark size="md" />
+            </p>
             <h1>Teaching desk</h1>
             <p className="lede">
               Apply to teach as a Rebbi to open this desk and meet students.
@@ -456,7 +458,7 @@ export default function App() {
                 Become a Rebbi
               </button>
               <button type="button" className="btn-main btn-secondary" onClick={() => go('home')}>
-                Back to Guide
+                Back home
               </button>
             </div>
           </main>

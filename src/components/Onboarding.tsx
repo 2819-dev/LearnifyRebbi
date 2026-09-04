@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { APP_NAME } from '../lib/brand'
+import { AppMark } from './AppMark'
 import { HIGHLIGHT_LEGEND } from '../lib/curriculum'
 
 const STEPS = [
@@ -46,7 +46,9 @@ export function Onboarding({ onDone }: Props) {
   return (
     <div className="onboard" role="dialog" aria-modal="true" aria-label="Welcome">
       <div className="onboard-card">
-        <p className="onboard-brand">{APP_NAME}</p>
+        <p className="brand-mark onboard-brand-mark">
+          <AppMark size="md" />
+        </p>
         <p className="onboard-step">
           {step + 1} / {STEPS.length}
         </p>

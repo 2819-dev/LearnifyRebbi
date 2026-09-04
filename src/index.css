@@ -1366,6 +1366,54 @@ button {
   gap: 0.15rem;
 }
 
+.app-mark {
+  display: block;
+  border-radius: 7px;
+  flex: 0 0 auto;
+}
+
+.app-mark-sm {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.app-mark-md {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 8px;
+}
+
+.brand-mark {
+  margin: 0 0 0.35rem;
+}
+
+.brand-mark .app-mark {
+  margin-inline: auto;
+}
+
+.auth-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.mark-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.15rem;
+  border: 0;
+  background: transparent;
+}
+
+.mark-back:hover {
+  opacity: 0.85;
+}
+
+.panel-bar .mark-back {
+  margin-bottom: 0.15rem;
+}
+
 .tour-link {
   justify-self: center;
   margin-top: 0.15rem;
@@ -1394,14 +1442,12 @@ button {
   box-shadow: 0 1px 0 var(--edge);
 }
 
-.onboard-brand {
+.onboard-brand-mark {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 2rem;
-  font-weight: 600;
-  letter-spacing: -0.04em;
-  color: var(--accent);
-  line-height: 1;
+}
+
+.onboard-brand-mark .app-mark {
+  margin-inline: 0;
 }
 
 .onboard-step {

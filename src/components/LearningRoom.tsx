@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { GemaraDaf } from './GemaraDaf'
 import { TalkModePicker } from './TalkModePicker'
-import { APP_NAME, REBBE_VOICES, saveLearningProgress, saveTalkMode, type TalkMode } from '../lib/brand'
+import { REBBE_VOICES, saveLearningProgress, saveTalkMode, type TalkMode } from '../lib/brand'
 import { HIGHLIGHT_TERM_HINTS } from '../lib/curriculum'
 import {
   chunkPhrase,
@@ -32,6 +32,7 @@ import {
   type GemaraPage,
 } from '../lib/sefaria'
 import { AccountMenu } from './AccountMenu'
+import { AppMark } from './AppMark'
 
 type Props = {
   daf: string
@@ -765,8 +766,13 @@ export function LearningRoom({
       />
       <header className="room-bar">
         <div className="room-brand">
-          <button type="button" className="linkish" onClick={onExit}>
-            {APP_NAME}
+          <button
+            type="button"
+            className="mark-back"
+            onClick={onExit}
+            aria-label="Back to home"
+          >
+            <AppMark />
           </button>
         </div>
         <div className="room-meta">

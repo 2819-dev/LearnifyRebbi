@@ -1,4 +1,4 @@
-import { APP_NAME } from '../lib/brand'
+import { AppMark } from './AppMark'
 import type { Account } from '../lib/account'
 
 type Props = {
@@ -23,7 +23,9 @@ export function ApplicationRejected({
       </div>
       <div className="shell home-shell">
         <main className="home auth-home submitted-home">
-          <p className="brand">{APP_NAME}</p>
+          <p className="brand-mark">
+            <AppMark size="md" />
+          </p>
           <p className="status-pill status-pill-muted" role="status">
             Not approved
           </p>

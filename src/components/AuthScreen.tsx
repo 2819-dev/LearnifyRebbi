@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { APP_NAME } from '../lib/brand'
+import { AppMark } from './AppMark'
 import {
   applyAsRabbi,
   login,
@@ -62,9 +62,11 @@ export function AuthScreen({
       <div className="shell home-shell">
       <main className={`home auth-home${isRabbiFlow ? ' auth-home-wide' : ''}`}>
         <button type="button" className="linkish tiny auth-back" onClick={onBack}>
-          ← Back to {APP_NAME}
+          ← Back
         </button>
-        <p className="brand">{APP_NAME}</p>
+        <p className="brand-mark">
+          <AppMark size="md" />
+        </p>
         <h1>{title}</h1>
         <p className="lede">
           {isRabbiFlow
