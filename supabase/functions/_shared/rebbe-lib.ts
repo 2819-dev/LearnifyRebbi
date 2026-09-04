@@ -44,6 +44,10 @@ export async function geminiKey(): Promise<string> {
   return Deno.env.get('GEMINI_API_KEY') || (await setting('gemini_api_key')) || ''
 }
 
+export async function groqKey(): Promise<string> {
+  return Deno.env.get('GROQ_API_KEY') || (await setting('groq_api_key')) || ''
+}
+
 export async function geminiModel(): Promise<string> {
   return (
     Deno.env.get('GEMINI_MODEL') ||
@@ -60,7 +64,7 @@ export async function ttsModel(): Promise<string> {
   )
 }
 
-/** Alternate TTS models — separate free-tier buckets when the primary is exhausted. */
+/** Alternate Gemini TTS models — separate free-tier buckets when the primary is exhausted. */
 export async function ttsModelCandidates(): Promise<string[]> {
   const primary = await ttsModel()
   const alts = [
@@ -70,6 +74,17 @@ export async function ttsModelCandidates(): Promise<string[]> {
     'gemini-2.5-flash-tts',
   ]
   return [...new Set(alts.filter(Boolean))]
+}
+
+/** Map Guide voice ids → Groq Orpheus male voices. */
+export function groqVoiceFor(guideVoice: string): string {
+  const map: Record<string, string> = {
+    Charon: 'troy',
+    Sadaltager: 'austin',
+    Schedar: 'daniel',
+    Gacrux: 'aaron',
+  }
+  return map[guideVoice] || 'troy'
 }
 
 export async function withRetry<T>(fn: () => Promise<T>, tries = 3): Promise<T> {

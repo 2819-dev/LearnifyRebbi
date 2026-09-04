@@ -1,4 +1,3 @@
-import { setting } from './db.ts'
 import { httpError } from './http.ts'
 import { trainingHintsForPrompt } from './hints.ts'
 import {
@@ -10,6 +9,8 @@ import {
   buildCurriculumBlock,
   geminiKey,
   geminiModel,
+  groqKey,
+  groqVoiceFor,
   ttsModelCandidates,
   withRetry,
   parseLessonPayload,
@@ -149,6 +150,12 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary)
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i])
+  return btoa(binary)
+}
+
 function pcmToWavBase64(pcmBase64: string, sampleRate = 24000): string {
   const binary = atob(pcmBase64)
   const pcm = new Uint8Array(binary.length)
@@ -228,25 +235,159 @@ async function requestGeminiSpeech(
   }
 }
 
+async function requestGroqSpeech(apiKey: string, spoken: string, guideVoice: string) {
+  const voice = groqVoiceFor(guideVoice)
+  const res = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'canopylabs/orpheus-v1-english',
+      voice,
+      input: spoken,
+      response_format: 'wav',
+    }),
+  })
+  if (!res.ok) {
+    let detail = 'Groq TTS failed (' + res.status + ')'
+    try {
+      const err = await res.json()
+      detail = String(err?.error?.message || err?.message || detail)
+    } catch {
+      // ignore
+    }
+    throw httpError(detail, res.status)
+  }
+  const buf = new Uint8Array(await res.arrayBuffer())
+  if (!buf.length) throw httpError('No audio returned from Groq TTS', 500)
+  return {
+    mimeType: 'audio/wav',
+    audioBase64: bytesToBase64(buf),
+    voice: guideVoice,
+    source: 'groq',
+    text: spoken,
+  }
+}
+
+/** Free no-key TTS via Google Translate (chunked MP3). */
+function splitSpeechChunks(text: string, max = 160): string[] {
+  const parts = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(/(?<=[.!?。])\s+/)
+  const chunks: string[] = []
+  let cur = ''
+  for (const part of parts) {
+    if (!part) continue
+    if ((cur + ' ' + part).trim().length <= max) {
+      cur = (cur + ' ' + part).trim()
+    } else {
+      if (cur) chunks.push(cur)
+      if (part.length <= max) cur = part
+      else {
+        // Hard-split long segments
+        for (let i = 0; i < part.length; i += max) {
+          chunks.push(part.slice(i, i + max))
+        }
+        cur = ''
+      }
+    }
+  }
+  if (cur) chunks.push(cur)
+  return chunks.length ? chunks : [text.slice(0, max)]
+}
+
+function looksMostlyHebrew(text: string): boolean {
+  const letters = text.replace(/\s+/g, '')
+  if (!letters) return false
+  const he = (letters.match(/[\u0590-\u05FF]/g) || []).length
+  return he / letters.length > 0.4
+}
+
+async function requestFreeGoogleSpeech(spoken: string, guideVoice: string) {
+  const lang = looksMostlyHebrew(spoken) ? 'iw' : 'en'
+  const chunks = splitSpeechChunks(spoken, 160)
+  const pieces: Uint8Array[] = []
+  for (const chunk of chunks) {
+    const url =
+      'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' +
+      lang +
+      '&q=' +
+      encodeURIComponent(chunk)
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    })
+    if (!res.ok) {
+      throw httpError('Free TTS failed (' + res.status + ')', res.status)
+    }
+    pieces.push(new Uint8Array(await res.arrayBuffer()))
+  }
+  const total = pieces.reduce((n, p) => n + p.length, 0)
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const p of pieces) {
+    merged.set(p, offset)
+    offset += p.length
+  }
+  if (!merged.length) throw httpError('No audio returned from free TTS', 500)
+  return {
+    mimeType: 'audio/mpeg',
+    audioBase64: bytesToBase64(merged),
+    voice: guideVoice,
+    source: 'free',
+    text: spoken,
+  }
+}
+
 export async function synthesizeRebbeSpeech(text: unknown, voiceName = 'Charon') {
-  const apiKey = await geminiKey()
-  if (!apiKey) throw httpError('Missing GEMINI_API_KEY', 500)
   const allowed = new Set(REBBE_VOICES.map((v) => v.id))
   const voice = allowed.has(voiceName) ? voiceName : 'Charon'
   const spoken = clip(String(text || '').trim(), 480)
   if (!spoken) throw httpError('Nothing to speak', 400)
 
-  const models = await ttsModelCandidates()
-  let lastErr: unknown
-  for (const model of models) {
+  const errors: string[] = []
+
+  // 1) Free Google Translate TTS — no API key, avoids Gemini free-tier silence
+  try {
+    return await withRetry(async () => requestFreeGoogleSpeech(spoken, voice), 2)
+  } catch (err) {
+    const msg = String((err as { message?: string })?.message || err)
+    console.error('Free TTS failed', msg)
+    errors.push(msg)
+  }
+
+  // 2) Groq Orpheus (optional key) — fast when billed/available
+  const groq = await groqKey()
+  if (groq) {
     try {
-      return await withRetry(
-        async () => requestGeminiSpeech(model, apiKey, spoken, voice),
-        2,
-      )
+      return await withRetry(async () => requestGroqSpeech(groq, spoken, voice), 2)
     } catch (err) {
-      lastErr = err
-      console.error('TTS failed for', model, err)
+      const msg = String((err as { message?: string })?.message || err)
+      console.error('Groq TTS failed', msg)
+      errors.push(msg)
+    }
+  }
+
+  // 3) Gemini TTS (optional key) — quality, but free-tier often capped
+  const gemini = await geminiKey()
+  if (gemini) {
+    const models = await ttsModelCandidates()
+    for (const model of models) {
+      try {
+        return await withRetry(
+          async () => requestGeminiSpeech(model, gemini, spoken, voice),
+          2,
+        )
+      } catch (err) {
+        const msg = String((err as { message?: string })?.message || err)
+        console.error('Gemini TTS failed for', model, msg)
+        errors.push(msg)
+      }
     }
   }
 
@@ -256,7 +397,7 @@ export async function synthesizeRebbeSpeech(text: unknown, voiceName = 'Charon')
     voice,
     source: 'browser',
     text: spoken,
-    warning: (lastErr as { message?: string })?.message || 'Using local voice',
+    warning: errors[0] || 'Using local voice',
   }
 }
 
