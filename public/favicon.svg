@@ -1,7 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Open amud / sefer mark for Guide -->
   <rect width="64" height="64" rx="14" fill="#234B3A"/>
-  <circle cx="32" cy="32" r="16.2" stroke="#F6F9F7" stroke-width="7.2"/>
-  <rect x="36.5" y="26.4" width="15" height="8.6" fill="#234B3A"/>
-  <rect x="29.2" y="28.5" width="17.6" height="7" rx="2.2" fill="#F6F9F7"/>
-  <rect x="41" y="28.5" width="5.9" height="13" rx="2" fill="#F6F9F7"/>
+  <!-- Left page -->
+  <path
+    fill="#F6F9F7"
+    d="M11.5 21.2c5.4-2.4 10.8-3.5 15.8-3.5 1.4 0 2.7.1 4 .3v28.8c-1.3-.3-2.6-.5-4-.5-5 0-10.4 1.1-15.8 3.5V21.2Z"
+  />
+  <!-- Right page -->
+  <path
+    fill="#F6F9F7"
+    d="M52.5 21.2c-5.4-2.4-10.8-3.5-15.8-3.5-1.4 0-2.7.1-4 .3v28.8c1.3-.3 2.6-.5 4-.5 5 0 10.4 1.1 15.8 3.5V21.2Z"
+  />
+  <!-- Text windows (Gemara center + commentary gutters) punched through to green -->
+  <g fill="#234B3A">
+    <!-- left gutter -->
+    <rect x="15.2" y="23.6" width="3.6" height="1.35" rx="0.5"/>
+    <rect x="15.2" y="26.8" width="3.6" height="1.35" rx="0.5"/>
+    <rect x="15.2" y="30" width="3.6" height="1.35" rx="0.5"/>
+    <rect x="15.2" y="33.2" width="3.1" height="1.35" rx="0.5"/>
+    <!-- left center -->
+    <rect x="20.6" y="23.4" width="8.2" height="1.55" rx="0.55"/>
+    <rect x="20.6" y="26.6" width="8.2" height="1.55" rx="0.55"/>
+    <rect x="20.6" y="29.8" width="8.2" height="1.55" rx="0.55"/>
+    <rect x="20.6" y="33" width="8.2" height="1.55" rx="0.55"/>
+    <rect x="20.6" y="36.2" width="6.4" height="1.55" rx="0.55"/>
+    <!-- right center -->
+    <rect x="35.2" y="23.4" width="8.2" height="1.55" rx="0.55"/>
+    <rect x="35.2" y="26.6" width="8.2" height="1.55" rx="0.55"/>
+    <rect x="35.2" y="29.8" width="8.2" height="1.55" rx="0.55"/>
+    <rect x="35.2" y="33" width="8.2" height="1.55" rx="0.55"/>
+    <rect x="35.2" y="36.2" width="6.4" height="1.55" rx="0.55"/>
+    <!-- right gutter -->
+    <rect x="45.2" y="23.6" width="3.6" height="1.35" rx="0.5"/>
+    <rect x="45.2" y="26.8" width="3.6" height="1.35" rx="0.5"/>
+    <rect x="45.2" y="30" width="3.6" height="1.35" rx="0.5"/>
+    <rect x="45.2" y="33.2" width="3.1" height="1.35" rx="0.5"/>
+  </g>
 </svg>
