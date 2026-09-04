@@ -57,8 +57,11 @@ export type PublicLearningRequest = {
   id: string
   studentId: string
   studentUsername: string
+  studentContact: string | null
   rabbiId: string | null
   rabbiUsername: string | null
+  rabbiDisplayName: string | null
+  rebbiContact: string | null
   message: string
   status: 'open' | 'claimed' | 'closed'
   createdAt: string
@@ -136,8 +139,11 @@ export function publicLearningRequest(row: {
   id: string
   student_id: string
   student_username?: string
+  student_contact?: string | null
   rabbi_id: string | null
   rabbi_username?: string | null
+  rabbi_display_name?: string | null
+  rebbi_contact?: string | null
   message: string
   status: 'open' | 'claimed' | 'closed'
   created_at: string
@@ -147,8 +153,13 @@ export function publicLearningRequest(row: {
     id: row.id,
     studentId: row.student_id,
     studentUsername: String(row.student_username || ''),
+    studentContact: row.student_contact ? String(row.student_contact) : null,
     rabbiId: row.rabbi_id,
     rabbiUsername: row.rabbi_username ? String(row.rabbi_username) : null,
+    rabbiDisplayName: row.rabbi_display_name
+      ? String(row.rabbi_display_name)
+      : null,
+    rebbiContact: row.rebbi_contact ? String(row.rebbi_contact) : null,
     message: row.message,
     status: row.status,
     createdAt: iso(row.created_at),

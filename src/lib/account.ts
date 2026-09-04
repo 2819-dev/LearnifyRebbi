@@ -55,8 +55,11 @@ export type LearningRequest = {
   id: string
   studentId: string
   studentUsername: string
+  studentContact: string | null
   rabbiId: string | null
   rabbiUsername: string | null
+  rabbiDisplayName: string | null
+  rebbiContact: string | null
   message: string
   status: 'open' | 'claimed' | 'closed'
   createdAt: string

@@ -15,6 +15,8 @@ import {
   parseLessonPayload,
 } from './rebbe-lib.ts'
 
+export { REBBE_VOICES }
+
 export async function generateRebbeReply(
   body: Record<string, unknown>,
 ): Promise<LessonPayload> {

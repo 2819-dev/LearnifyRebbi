@@ -569,8 +569,8 @@ export function LearningRoom({
         lineRef.current = start
         void teachCurrentLine()
       })
-      .catch((err: Error) => {
-        if (!cancelled) setPageError(err.message)
+      .catch(() => {
+        if (!cancelled) setPageError('Could not open this page')
       })
       .finally(() => {
         if (!cancelled) setLoadingPage(false)
@@ -725,7 +725,37 @@ export function LearningRoom({
 
       {loadingPage && <p className="soft">Opening…</p>}
       {pageError && (
-        <p className="bad">Could not open this page. Please try again.</p>
+        <div className="page-error-card">
+          <p className="bad">Could not open this page. Please try again.</p>
+          <div className="ticket-actions">
+            <button
+              type="button"
+              className="btn-main"
+              onClick={() => {
+                setLoadingPage(true)
+                setPageError(null)
+                fetchGemaraPage(daf)
+                  .then((data) => {
+                    const start = defaultStartIndex(daf, data.english)
+                    setPage(data)
+                    pageRef.current = data
+                    setLineIndex(start)
+                    lineRef.current = start
+                    void teachCurrentLine()
+                  })
+                  .catch(() => {
+                    setPageError('retry')
+                  })
+                  .finally(() => setLoadingPage(false))
+              }}
+            >
+              Try again
+            </button>
+            <button type="button" onClick={onExit}>
+              Leave
+            </button>
+          </div>
+        </div>
       )}
 
       {page && (
@@ -824,7 +854,7 @@ export function LearningRoom({
                   I said it
                 </button>
               )}
-              {talkMode === 'voice' && (
+              {talkMode === 'voice' && micAvailable && (
                 <button
                   type="button"
                   className={`mic-btn${micListening ? ' live' : ''}`}
@@ -835,6 +865,12 @@ export function LearningRoom({
                     ? 'Stop mic'
                     : 'Ask with mic'}
                 </button>
+              )}
+              {talkMode === 'voice' && !micAvailable && (
+                <p className="soft mic-unavailable">
+                  Mic is not available in this browser. Switch to Text, or use
+                  Replay and Continue.
+                </p>
               )}
               <button
                 type="button"

@@ -25,9 +25,9 @@ export async function registerAccount(body: Record<string, unknown>) {
   const user = String(body.username || '').trim()
   const tel = normalizePhone(body.phone)
   const pass = String(body.password || '')
-  if (user.length < 3) throw httpError('Username too short', 400)
+  if (user.length < 3) throw httpError('Choose a username with at least 3 characters', 400)
   if (tel.length < 8) throw httpError('Enter a valid phone number', 400)
-  if (pass.length < 6) throw httpError('Password must be at least 6 characters', 400)
+  if (pass.length < 6) throw httpError('Choose a password with at least 6 characters', 400)
 
   const role: AccountRole = (await isOwnerPhone(tel)) ? 'admin' : 'user'
   const passwordHash = await hashPassword(pass)
@@ -67,11 +67,11 @@ export async function registerRabbiAccount(body: Record<string, unknown>) {
   const user = String(body.username || '').trim()
   const tel = normalizePhone(body.phone)
   const pass = String(body.password || '')
-  if (user.length < 3) throw httpError('Username too short', 400)
+  if (user.length < 3) throw httpError('Choose a username with at least 3 characters', 400)
   if (tel.length < 8) throw httpError('Enter a valid phone number', 400)
-  if (pass.length < 6) throw httpError('Password must be at least 6 characters', 400)
+  if (pass.length < 6) throw httpError('Choose a password with at least 6 characters', 400)
   if (await isOwnerPhone(tel)) {
-    throw httpError('Use the regular account flow for the owner phone', 400)
+    throw httpError('Please create a regular student account with this phone number', 400)
   }
 
   const passwordHash = await hashPassword(pass)
@@ -135,7 +135,7 @@ export async function loginAccount(body: Record<string, unknown>) {
   const pass = String(body.password || '')
   const user = String(body.username || '').trim()
   const tel = normalizePhone(body.phone)
-  if (!pass) throw httpError('Wrong username/phone or password', 401)
+  if (!pass) throw httpError('Check your username or phone, and your password', 401)
 
   const rows = await query<AccountRow>(
     `select ${ACCOUNT_COLS} from guide.accounts where ($1 <> '' and lower(username) = lower($1)) or ($2 <> '' and phone = $2) limit 1`,
@@ -143,7 +143,7 @@ export async function loginAccount(body: Record<string, unknown>) {
   )
   const account = rows[0]
   if (!account || !(await verifyPassword(pass, account.password_hash))) {
-    throw httpError('Wrong username/phone or password', 401)
+    throw httpError('Check your username or phone, and your password', 401)
   }
 
   if ((await isOwnerPhone(account.phone)) && account.role !== 'admin') {
@@ -191,7 +191,7 @@ export async function requireApprovedRabbi(token: string) {
   if (!account) throw httpError('Please sign in', 401)
   if (account.role === 'admin') return account
   if (account.role !== 'rabbi' || account.rabbiStatus !== 'approved') {
-    throw httpError('Rebbi access is not approved yet', 403)
+    throw httpError('Your teaching desk is not open yet', 403)
   }
   return account
 }

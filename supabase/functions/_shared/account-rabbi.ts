@@ -87,12 +87,12 @@ export async function createLearningRequest(token: string, messageRaw: unknown) 
   const account = await accountFromToken(token)
   if (!account) throw httpError('Please sign in to request a Rebbi', 401)
   if (account.role === 'rabbi' && account.rabbiStatus === 'approved') {
-    throw httpError('Rebbeim cannot request learning from other Rebbeim here', 400)
+    throw httpError('You already teach as a Rebbi here', 400)
   }
 
   const available = await listAvailableRabbis()
   if (available.length === 0) {
-    throw httpError('No Rebbeim are available', 409)
+    throw httpError('No Rebbeim are available right now', 409)
   }
 
   const message = String(messageRaw || '').trim().slice(0, 2000)
@@ -115,7 +115,10 @@ export async function createLearningRequest(token: string, messageRaw: unknown) 
       updated_at: string
     }),
     student_username: account.username,
+    student_contact: null,
     rabbi_username: null,
+    rabbi_display_name: null,
+    rebbi_contact: null,
   })
 }
 
@@ -124,7 +127,10 @@ export async function listMyLearningRequests(token: string) {
   if (!account) throw httpError('Please sign in', 401)
   const rows = await query(
     `select r.id, r.student_id, s.username as student_username, r.rabbi_id,
-            a.username as rabbi_username, r.message, r.status, r.created_at, r.updated_at
+            a.username as rabbi_username,
+            a.rabbi_display_name as rabbi_display_name,
+            case when r.status in ('claimed', 'closed') then a.phone else null end as rebbi_contact,
+            r.message, r.status, r.created_at, r.updated_at
      from guide.learning_requests r
      join guide.accounts s on s.id = r.student_id
      left join guide.accounts a on a.id = r.rabbi_id
@@ -140,7 +146,11 @@ export async function listRabbiLearningRequests(token: string) {
   const account = await requireApprovedRabbi(token)
   const rows = await query(
     `select r.id, r.student_id, s.username as student_username, r.rabbi_id,
-            a.username as rabbi_username, r.message, r.status, r.created_at, r.updated_at
+            a.username as rabbi_username,
+            a.rabbi_display_name as rabbi_display_name,
+            case when r.status in ('claimed', 'closed') and r.rabbi_id = $1::uuid then s.phone else null end as student_contact,
+            case when r.status in ('claimed', 'closed') then a.phone else null end as rebbi_contact,
+            r.message, r.status, r.created_at, r.updated_at
      from guide.learning_requests r
      join guide.accounts s on s.id = r.student_id
      left join guide.accounts a on a.id = r.rabbi_id
@@ -163,10 +173,14 @@ export async function claimLearningRequest(token: string, requestId: unknown) {
      returning id, student_id, rabbi_id, message, status, created_at, updated_at`,
     [account.id, String(requestId)],
   )
-  if (!rows[0]) throw httpError('Request is no longer available', 409)
-  const student = await query<{ username: string }>(
-    'select username from guide.accounts where id = $1::uuid limit 1',
+  if (!rows[0]) throw httpError('That request was already taken', 409)
+  const student = await query<{ username: string; phone: string }>(
+    'select username, phone from guide.accounts where id = $1::uuid limit 1',
     [(rows[0] as { student_id: string }).student_id],
+  )
+  const rebbi = await query<{ phone: string; rabbi_display_name: string }>(
+    'select phone, rabbi_display_name from guide.accounts where id = $1::uuid limit 1',
+    [account.id],
   )
   return publicLearningRequest({
     ...(rows[0] as {
@@ -179,7 +193,10 @@ export async function claimLearningRequest(token: string, requestId: unknown) {
       updated_at: string
     }),
     student_username: student[0]?.username || '',
+    student_contact: student[0]?.phone || null,
     rabbi_username: account.username,
+    rabbi_display_name: rebbi[0]?.rabbi_display_name || account.username,
+    rebbi_contact: rebbi[0]?.phone || null,
   })
 }
 
@@ -193,8 +210,18 @@ export async function closeLearningRequest(token: string, requestId: unknown) {
     [String(requestId), account.id, account.role === 'admin'],
   )
   if (!rows[0]) throw httpError('Request not found', 404)
-  const meta = await query<{ student_username: string; rabbi_username: string | null }>(
-    `select s.username as student_username, a.username as rabbi_username
+  const meta = await query<{
+    student_username: string
+    student_contact: string | null
+    rabbi_username: string | null
+    rabbi_display_name: string | null
+    rebbi_contact: string | null
+  }>(
+    `select s.username as student_username,
+            s.phone as student_contact,
+            a.username as rabbi_username,
+            a.rabbi_display_name as rabbi_display_name,
+            a.phone as rebbi_contact
      from guide.learning_requests r
      join guide.accounts s on s.id = r.student_id
      left join guide.accounts a on a.id = r.rabbi_id
@@ -212,7 +239,10 @@ export async function closeLearningRequest(token: string, requestId: unknown) {
       updated_at: string
     }),
     student_username: meta[0]?.student_username || '',
+    student_contact: meta[0]?.student_contact || null,
     rabbi_username: meta[0]?.rabbi_username || null,
+    rabbi_display_name: meta[0]?.rabbi_display_name || null,
+    rebbi_contact: meta[0]?.rebbi_contact || null,
   })
 }
 

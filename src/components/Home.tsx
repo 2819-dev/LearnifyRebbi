@@ -56,6 +56,11 @@ export function Home({
   )
   const preview = useMemo(() => normalizeDaf(daf), [daf])
   const pendingRabbi = account?.rabbiStatus === 'pending'
+  const rejectedRabbi = account?.rabbiStatus === 'rejected'
+  const canBecomeRabbi =
+    !account ||
+    (!isApprovedRabbi(account) &&
+      account.rabbiStatus !== 'pending')
 
   return (
     <div className="home-stage">
@@ -98,6 +103,15 @@ export function Home({
                       Coaching
                     </button>
                   )}
+                {canBecomeRabbi && onRegisterRabbi && (
+                  <button
+                    type="button"
+                    className="linkish tiny"
+                    onClick={onRegisterRabbi}
+                  >
+                    {rejectedRabbi ? 'Rebbi application' : 'Become a Rebbi'}
+                  </button>
+                )}
                 {onSignOut && (
                   <button
                     type="button"
@@ -158,6 +172,23 @@ export function Home({
                   onClick={onOpenPendingApplication}
                 >
                   View application status
+                </button>
+              )}
+            </div>
+          )}
+
+          {rejectedRabbi && (
+            <div className="pending-banner">
+              <p className="soft path-note">
+                Your Rebbi application was not approved.
+              </p>
+              {onOpenPendingApplication && (
+                <button
+                  type="button"
+                  className="linkish tiny"
+                  onClick={onOpenPendingApplication}
+                >
+                  See options
                 </button>
               )}
             </div>

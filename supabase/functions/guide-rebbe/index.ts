@@ -4,7 +4,7 @@ import {
   lessonResponse,
   REBBE_VOICES,
   synthesizeRebbeSpeech,
-} from './_shared/rebbe.ts'
+} from '../_shared/rebbe.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return optionsResponse()

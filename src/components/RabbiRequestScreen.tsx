@@ -18,6 +18,16 @@ type Props = {
   onBack: () => void
 }
 
+function formatContact(value: string | null | undefined) {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+  return raw
+}
+
+function rebbiLabel(r: LearningRequest) {
+  return r.rabbiDisplayName || r.rabbiUsername || 'your Rebbi'
+}
+
 export function RabbiRequestScreen({
   account,
   onLearnWithGuide,
@@ -36,9 +46,11 @@ export function RabbiRequestScreen({
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  async function refresh() {
-    setBusy(true)
-    setError(null)
+  async function refresh(opts?: { quiet?: boolean }) {
+    if (!opts?.quiet) {
+      setBusy(true)
+      setError(null)
+    }
     try {
       const [list, mine] = await Promise.all([
         fetchAvailableRabbis(),
@@ -47,10 +59,16 @@ export function RabbiRequestScreen({
       setRabbis(list)
       setRequests(mine)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load Rebbeim')
-      setRabbis([])
+      if (!opts?.quiet) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Could not load Rebbeim. Please try again.',
+        )
+        setRabbis([])
+      }
     } finally {
-      setBusy(false)
+      if (!opts?.quiet) setBusy(false)
     }
   }
 
@@ -58,7 +76,17 @@ export function RabbiRequestScreen({
     void refresh()
   }, [])
 
+  useEffect(() => {
+    const hasOpen = requests.some((r) => r.status === 'open')
+    if (!hasOpen) return
+    const id = window.setInterval(() => {
+      void refresh({ quiet: true })
+    }, 12000)
+    return () => window.clearInterval(id)
+  }, [requests])
+
   const available = (rabbis || []).length > 0
+  const hasOpenRequest = requests.some((r) => r.status === 'open')
 
   return (
     <div className="shell home-shell">
@@ -72,8 +100,8 @@ export function RabbiRequestScreen({
         <p className="brand">{APP_NAME}</p>
         <h1>Learn with Rebbi</h1>
         <p className="lede">
-          Request a real-life Rebbi. If none are free right now, leave a message
-          or learn with Guide.
+          Request a real-life Rebbi. When someone accepts, you exchange phone
+          numbers here so you can set up a time to learn.
         </p>
 
         {error && <p className="bad auth-error">{error}</p>}
@@ -102,7 +130,9 @@ export function RabbiRequestScreen({
                   setWaitMessage('')
                 } catch (err) {
                   setError(
-                    err instanceof Error ? err.message : 'Could not save message',
+                    err instanceof Error
+                      ? err.message
+                      : 'Could not save message. Please try again.',
                   )
                 } finally {
                   setBusy(false)
@@ -156,43 +186,54 @@ export function RabbiRequestScreen({
                 </li>
               ))}
             </ul>
-            <form
-              className="inline-form"
-              onSubmit={async (e) => {
-                e.preventDefault()
-                setBusy(true)
-                setError(null)
-                setNotice(null)
-                try {
-                  const request = await createLearningRequest(message)
-                  setRequests((prev) => [request, ...prev])
-                  setNotice('Request sent. A Rebbi will reach out when ready.')
-                } catch (err) {
-                  const text =
-                    err instanceof Error ? err.message : 'Could not send request'
-                  setError(text)
-                  if (/no rebbeim are available/i.test(text)) {
-                    await refresh()
+            {hasOpenRequest ? (
+              <p className="soft path-note">
+                You already have a waiting request. This page updates when a
+                Rebbi accepts.
+              </p>
+            ) : (
+              <form
+                className="inline-form"
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  setBusy(true)
+                  setError(null)
+                  setNotice(null)
+                  try {
+                    const request = await createLearningRequest(message)
+                    setRequests((prev) => [request, ...prev])
+                    setNotice(
+                      'Request sent. When a Rebbi accepts, their phone number will appear below.',
+                    )
+                  } catch (err) {
+                    const text =
+                      err instanceof Error
+                        ? err.message
+                        : 'Could not send request. Please try again.'
+                    setError(text)
+                    if (/no rebbeim are available/i.test(text)) {
+                      await refresh()
+                    }
+                  } finally {
+                    setBusy(false)
                   }
-                } finally {
-                  setBusy(false)
-                }
-              }}
-            >
-              <label className="full">
-                <span>Note for the Rebbi</span>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows={4}
-                  required
-                  minLength={3}
-                />
-              </label>
-              <button type="submit" className="btn-main" disabled={busy}>
-                Request a Rebbi
-              </button>
-            </form>
+                }}
+              >
+                <label className="full">
+                  <span>Note for the Rebbi</span>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={4}
+                    required
+                    minLength={3}
+                  />
+                </label>
+                <button type="submit" className="btn-main" disabled={busy}>
+                  Request a Rebbi
+                </button>
+              </form>
+            )}
             <button
               type="button"
               className="linkish tiny tour-link"
@@ -207,23 +248,57 @@ export function RabbiRequestScreen({
           <section className="submitted-card path-card">
             <h2>Your requests</h2>
             <ul className="ticket-list">
-              {requests.map((r) => (
-                <li key={r.id}>
-                  <div className="ticket-top">
-                    <strong>{r.message.slice(0, 72)}</strong>
-                    <span className={`ticket-status ${r.status}`}>
-                      {learningRequestStatusLabel(r.status)}
-                    </span>
-                  </div>
-                  <p className="soft">
-                    {r.rabbiUsername
-                      ? `With ${r.rabbiUsername}`
-                      : 'Waiting for a Rebbi'}{' '}
-                    · {new Date(r.createdAt).toLocaleString()}
-                  </p>
-                </li>
-              ))}
+              {requests.map((r) => {
+                const contact = formatContact(r.rebbiContact)
+                const name = rebbiLabel(r)
+                return (
+                  <li key={r.id}>
+                    <div className="ticket-top">
+                      <strong>{r.message.slice(0, 72)}</strong>
+                      <span className={`ticket-status ${r.status}`}>
+                        {learningRequestStatusLabel(r.status)}
+                      </span>
+                    </div>
+                    {r.status === 'open' && (
+                      <p className="soft">
+                        Waiting for a Rebbi · {new Date(r.createdAt).toLocaleString()}
+                      </p>
+                    )}
+                    {r.status !== 'open' && (
+                      <>
+                        <p className="soft">
+                          Matched with {name} ·{' '}
+                          {new Date(r.updatedAt || r.createdAt).toLocaleString()}
+                        </p>
+                        {contact ? (
+                          <p className="match-contact">
+                            Rebbi phone:{' '}
+                            <a href={`tel:${contact}`}>{contact}</a>
+                          </p>
+                        ) : (
+                          <p className="soft">
+                            Contact details will show once the match is ready.
+                          </p>
+                        )}
+                        {contact && r.status === 'claimed' && (
+                          <p className="soft">
+                            Call or text {name} to arrange a time to learn.
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
+            <button
+              type="button"
+              className="linkish tiny tour-link"
+              onClick={() => void refresh()}
+              disabled={busy}
+            >
+              Refresh status
+            </button>
           </section>
         )}
       </main>

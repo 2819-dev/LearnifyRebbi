@@ -62,8 +62,13 @@ export function SupportForm({ onClose, defaultName = '', defaultPhone = '' }: Pr
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </label>
           <label className="full">
-            <span>Phone</span>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <span>Phone (optional)</span>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              autoComplete="tel"
+              placeholder="So we can reach you"
+            />
           </label>
           <label className="full">
             <span>Subject</span>

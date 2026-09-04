@@ -9,6 +9,7 @@ import { SupportForm } from './components/SupportForm'
 import { RabbiPanel } from './components/RabbiPanel'
 import { RabbiRequestScreen } from './components/RabbiRequestScreen'
 import { ApplicationSubmitted } from './components/ApplicationSubmitted'
+import { ApplicationRejected } from './components/ApplicationRejected'
 import {
   APP_NAME,
   hasCompletedOnboarding,
@@ -42,6 +43,10 @@ type View =
   | 'rabbi'
   | 'rebbe-request'
   | 'rebbe-pending'
+  | 'rebbe-rejected'
+
+type AuthMode = 'login' | 'register' | 'rabbi' | 'apply'
+type ResumeView = 'home' | 'rebbe-request' | 'rabbi' | 'auth-rabbi'
 
 function viewFromPath(): View {
   const path = window.location.pathname.replace(/\/+$/, '') || '/'
@@ -69,8 +74,26 @@ function viewFromPath(): View {
   ) {
     return 'rebbe-pending'
   }
+  if (
+    path === '/application-update' ||
+    path === '/application-rejected'
+  ) {
+    return 'rebbe-rejected'
+  }
   if (path === '/login' || path === '/account') return 'auth'
   return 'home'
+}
+
+function pathForView(next: View): string {
+  if (next === 'admin') return '/admin'
+  if (next === 'testing') return '/test'
+  if (next === 'rabbi') return '/rebbi'
+  if (next === 'rebbe-request') return '/learn-with-rebbi'
+  if (next === 'rebbe-pending') return '/application-submitted'
+  if (next === 'rebbe-rejected') return '/application-update'
+  if (next === 'auth-rabbi') return '/register-rebbi'
+  if (next === 'auth') return '/login'
+  return '/'
 }
 
 export default function App() {
@@ -78,6 +101,8 @@ export default function App() {
   const [session, setSession] = useState<Session>(null)
   const [account, setAccount] = useState<Account | null>(null)
   const [authReady, setAuthReady] = useState(!getToken())
+  const [authMode, setAuthMode] = useState<AuthMode>('login')
+  const [resumeAfterAuth, setResumeAfterAuth] = useState<ResumeView>('home')
   const [showOnboarding, setShowOnboarding] = useState(
     () => !hasCompletedOnboarding(),
   )
@@ -85,23 +110,7 @@ export default function App() {
 
   function go(next: View) {
     setView(next)
-    const path =
-      next === 'admin'
-        ? '/admin'
-        : next === 'testing'
-          ? '/test'
-          : next === 'rabbi'
-            ? '/rebbi'
-            : next === 'rebbe-request'
-              ? '/learn-with-rebbi'
-              : next === 'rebbe-pending'
-                ? '/application-submitted'
-                : next === 'auth-rabbi'
-                  ? '/register-rebbi'
-                  : next === 'auth'
-                    ? '/login'
-                    : '/'
-    window.history.pushState({}, '', path)
+    window.history.pushState({}, '', pathForView(next))
   }
 
   useEffect(() => {
@@ -137,8 +146,22 @@ export default function App() {
       go('rabbi')
       return
     }
-    if (view === 'rebbe-pending' && account.rabbiStatus !== 'pending') {
+    if (view === 'rebbe-pending' && account.rabbiStatus === 'rejected') {
+      go('rebbe-rejected')
+      return
+    }
+    if (
+      view === 'rebbe-pending' &&
+      account.rabbiStatus !== 'pending'
+    ) {
       go('home')
+      return
+    }
+    if (
+      view === 'auth-rabbi' &&
+      account.rabbiStatus === 'pending'
+    ) {
+      go('rebbe-pending')
     }
   }, [authReady, account, view])
 
@@ -147,13 +170,93 @@ export default function App() {
     setShowOnboarding(false)
   }
 
+  function openAuth(mode: AuthMode, resume: ResumeView = 'home') {
+    setAuthMode(mode)
+    setResumeAfterAuth(resume)
+    go(mode === 'rabbi' || mode === 'apply' ? 'auth-rabbi' : 'auth')
+  }
+
   function routeAfterSignIn(acc: Account) {
     setAccount(acc)
+    const resume = resumeAfterAuth
+    setResumeAfterAuth('home')
+    setAuthMode('login')
+
+    if (acc.rabbiStatus === 'pending' && (resume === 'auth-rabbi' || view === 'auth-rabbi')) {
+      go('rebbe-pending')
+      return
+    }
+    if (resume === 'rebbe-request') {
+      go('rebbe-request')
+      return
+    }
+    if (resume === 'rabbi') {
+      if (isApprovedRabbi(acc)) {
+        go('rabbi')
+        return
+      }
+      if (acc.rabbiStatus === 'pending') {
+        go('rebbe-pending')
+        return
+      }
+      if (acc.rabbiStatus === 'rejected') {
+        go('rebbe-rejected')
+        return
+      }
+    }
+    if (resume === 'auth-rabbi') {
+      if (isApprovedRabbi(acc)) {
+        go('rabbi')
+        return
+      }
+      if (acc.rabbiStatus === 'pending') {
+        go('rebbe-pending')
+        return
+      }
+      if (acc.rabbiStatus === 'rejected') {
+        go('rebbe-rejected')
+        return
+      }
+      // Signed-in student who landed on Become a Rebbi after login
+      if (getToken() && acc.rabbiStatus !== 'approved') {
+        openAuth('apply', 'auth-rabbi')
+        return
+      }
+    }
+
     if (acc.role === 'admin') go('admin')
     else if (isApprovedRabbi(acc)) go('rabbi')
     else if (acc.rabbiStatus === 'pending') go('rebbe-pending')
     else if (acc.role === 'tester') go('testing')
     else go('home')
+  }
+
+  function openBecomeRabbi() {
+    if (!account) {
+      openAuth('rabbi', 'auth-rabbi')
+      return
+    }
+    if (isApprovedRabbi(account)) {
+      go('rabbi')
+      return
+    }
+    if (account.rabbiStatus === 'pending') {
+      go('rebbe-pending')
+      return
+    }
+    if (account.rabbiStatus === 'rejected') {
+      go('rebbe-rejected')
+      return
+    }
+    openAuth('apply', 'auth-rabbi')
+  }
+
+  function openLearnWithRebbi() {
+    if (!account) {
+      openAuth('login', 'rebbe-request')
+      return
+    }
+    go('rebbe-request')
   }
 
   async function signOutAndHome() {
@@ -171,10 +274,40 @@ export default function App() {
   }
 
   if (view === 'auth' || view === 'auth-rabbi') {
+    let mode: AuthMode = 'login'
+    if (view === 'auth-rabbi') {
+      if (
+        account &&
+        !isApprovedRabbi(account) &&
+        account.rabbiStatus !== 'pending'
+      ) {
+        mode = 'apply'
+      } else if (authMode === 'apply') {
+        mode = 'apply'
+      } else {
+        mode = 'rabbi'
+      }
+    } else if (authMode === 'register') {
+      mode = 'register'
+    }
+
+    if (account?.rabbiStatus === 'pending' && view === 'auth-rabbi') {
+      return (
+        <div className="shell home-shell">
+          <p className="soft">Opening your application…</p>
+        </div>
+      )
+    }
+
     return (
       <AuthScreen
-        initialMode={view === 'auth-rabbi' ? 'rabbi' : 'login'}
-        onBack={() => go('home')}
+        key={`${view}-${mode}-${account?.id || 'guest'}`}
+        initialMode={mode}
+        signedInAccount={account}
+        onBack={() => {
+          setResumeAfterAuth('home')
+          go('home')
+        }}
         onSignedIn={routeAfterSignIn}
       />
     )
@@ -214,6 +347,25 @@ export default function App() {
     )
   }
 
+  if (view === 'rebbe-rejected') {
+    if (!account) {
+      return (
+        <AuthScreen
+          onBack={() => go('home')}
+          onSignedIn={routeAfterSignIn}
+        />
+      )
+    }
+    return (
+      <ApplicationRejected
+        account={account}
+        onContinueLearning={() => go('home')}
+        onReapply={() => openAuth('apply', 'auth-rabbi')}
+        onSignOut={() => void signOutAndHome()}
+      />
+    )
+  }
+
   if (view === 'rebbe-pending') {
     if (!account) {
       return (
@@ -227,6 +379,13 @@ export default function App() {
       return (
         <div className="shell home-shell">
           <p className="soft">Opening your teaching desk…</p>
+        </div>
+      )
+    }
+    if (account.rabbiStatus === 'rejected') {
+      return (
+        <div className="shell home-shell">
+          <p className="soft">Opening your application update…</p>
         </div>
       )
     }
@@ -251,7 +410,11 @@ export default function App() {
       return (
         <AuthScreen
           onBack={() => go('home')}
-          onSignedIn={routeAfterSignIn}
+          onSignedIn={(acc) => {
+            setAccount(acc)
+            setResumeAfterAuth('rabbi')
+            routeAfterSignIn(acc)
+          }}
         />
       )
     }
@@ -264,6 +427,16 @@ export default function App() {
         />
       )
     }
+    if (account.rabbiStatus === 'rejected') {
+      return (
+        <ApplicationRejected
+          account={account}
+          onContinueLearning={() => go('home')}
+          onReapply={() => openAuth('apply', 'auth-rabbi')}
+          onSignOut={() => void signOutAndHome()}
+        />
+      )
+    }
     if (!isApprovedRabbi(account)) {
       return (
         <div className="shell home-shell">
@@ -271,11 +444,17 @@ export default function App() {
             <p className="brand">{APP_NAME}</p>
             <h1>Teaching desk</h1>
             <p className="lede">
-              Your application is still under review. We will open this desk
-              once you are welcome to teach.
+              Apply to teach as a Rebbi to open this desk and meet students.
             </p>
             <div className="submitted-actions">
-              <button type="button" className="btn-main" onClick={() => go('home')}>
+              <button
+                type="button"
+                className="btn-main"
+                onClick={() => openBecomeRabbi()}
+              >
+                Become a Rebbi
+              </button>
+              <button type="button" className="btn-main btn-secondary" onClick={() => go('home')}>
                 Back to Guide
               </button>
             </div>
@@ -293,6 +472,7 @@ export default function App() {
           onBack={() => go('home')}
           onSignedIn={(acc) => {
             setAccount(acc)
+            setResumeAfterAuth('rebbe-request')
             go('rebbe-request')
           }}
         />
@@ -376,22 +556,16 @@ export default function App() {
         onStart={({ daf, voiceId, tractateId, talkMode }) => {
           setSession({ daf, voiceId, tractateId, talkMode })
         }}
-        onLearnWithRebbi={() => {
-          if (!account) {
-            go('auth')
-            return
-          }
-          go('rebbe-request')
-        }}
+        onLearnWithRebbi={openLearnWithRebbi}
         onShowTour={() => setShowOnboarding(true)}
-        onSignIn={() => go('auth')}
-        onRegisterRabbi={() =>
-          go(account?.rabbiStatus === 'pending' ? 'rebbe-pending' : 'auth-rabbi')
-        }
+        onSignIn={() => openAuth('login', 'home')}
+        onRegisterRabbi={openBecomeRabbi}
         onOpenPendingApplication={
           account?.rabbiStatus === 'pending'
             ? () => go('rebbe-pending')
-            : undefined
+            : account?.rabbiStatus === 'rejected'
+              ? () => go('rebbe-rejected')
+              : undefined
         }
         onSignOut={() => void signOutAndHome()}
         onOpenAdmin={() => go('admin')}

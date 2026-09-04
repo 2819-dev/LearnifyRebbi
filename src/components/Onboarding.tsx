@@ -78,6 +78,9 @@ export function Onboarding({ onDone }: Props) {
             ))}
           </div>
           <div className="onboard-btns">
+            <button type="button" className="linkish tiny" onClick={onDone}>
+              Skip
+            </button>
             {step > 0 && (
               <button type="button" onClick={() => setStep((s) => s - 1)}>
                 Back
